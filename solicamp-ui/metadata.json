@@ -1,0 +1,23 @@
+{
+  "name": "solicamp_ui",
+  "display_name": "SoliCamp",
+  "version": "0.1.0",
+  "type": "ui_qml",
+  "category": "developer",
+  "description": "A Solidity playground: write, compile, deploy and call contracts on your own local Solizone chain",
+  "view": "Main.qml",
+  "icon": "src/icons/icon.png",
+  "dependencies": ["solizone_module"],
+  "provides": [],
+  "uses": [],
+  "nix": {
+    "packages": { "build": [], "runtime": [] },
+    "external_libraries": [],
+    "cmake": {
+      "find_packages": [],
+      "extra_sources": [],
+      "extra_include_dirs": [],
+      "extra_link_libraries": []
+    }
+  }
+}
