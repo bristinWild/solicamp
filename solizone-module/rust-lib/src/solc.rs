@@ -4,7 +4,8 @@
 //!
 //! 1. `$SOLIZONE_SOLC`, an explicit path;
 //! 2. `solc` on `PATH` (the Nix package puts one in the runtime closure);
-//! 3. Foundry's compiler cache, `~/.svm/<version>/solc-<version>`, newest first.
+//! 3. Foundry's compiler cache (`~/.svm`, `~/Library/Application Support/svm`
+//!    on macOS, `~/.local/share/svm` on Linux), newest version first.
 //!
 //! The last step is a development convenience. Shipping a pinned `solc` inside
 //! the package is the long-term answer; this is what the Basecamp spike checks.
@@ -53,12 +54,29 @@ fn on_path(name: &str) -> Option<PathBuf> {
         .find(|candidate| candidate.is_file())
 }
 
-/// `~/.svm/<version>/solc-<version>`, highest version first.
-fn newest_in_svm() -> Option<PathBuf> {
-    let svm = PathBuf::from(env::var_os("HOME")?).join(".svm");
+/// Folders where Foundry / svm keep downloaded compilers.
+fn svm_roots() -> Vec<PathBuf> {
+    let Some(home) = env::var_os("HOME").map(PathBuf::from) else {
+        return Vec::new();
+    };
 
-    let mut versions: Vec<((u64, u64, u64), PathBuf)> = fs::read_dir(svm)
-        .ok()?
+    vec![
+        home.join(".svm"),
+        home.join("Library/Application Support/svm"),
+        home.join(".local/share/svm"),
+    ]
+}
+
+/// `<root>/<version>/solc-<version>` across all roots, highest version first.
+fn newest_in_svm() -> Option<PathBuf> {
+    newest_in(&svm_roots())
+}
+
+fn newest_in(roots: &[PathBuf]) -> Option<PathBuf> {
+    let mut versions: Vec<((u64, u64, u64), PathBuf)> = roots
+        .iter()
+        .filter_map(|root| fs::read_dir(root).ok())
+        .flatten()
         .filter_map(Result::ok)
         .filter_map(|entry| {
             let name = entry.file_name().to_string_lossy().to_string();
@@ -149,6 +167,23 @@ fn parse_combined_json(solc: &Path, stdout: &[u8]) -> Result<Value, String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn finds_the_newest_compiler_across_cache_folders() {
+        let base = std::env::temp_dir().join(format!("solc-roots-{}", std::process::id()));
+        let (a, b) = (base.join("a"), base.join("b"));
+
+        for (root, version) in [(&a, "0.8.9"), (&b, "0.8.28"), (&b, "0.8.4")] {
+            let dir = root.join(version);
+            fs::create_dir_all(&dir).unwrap();
+            fs::write(dir.join(format!("solc-{version}")), "").unwrap();
+        }
+
+        let found = newest_in(&[a, b, base.join("missing")]).unwrap();
+        assert!(found.ends_with("0.8.28/solc-0.8.28"), "{found:?}");
+
+        fs::remove_dir_all(&base).unwrap();
+    }
 
     #[test]
     fn versions_sort_numerically_not_alphabetically() {
