@@ -10,6 +10,18 @@
 //! The last step is a development convenience. Shipping a pinned `solc` inside
 //! the package is the long-term answer; this is what the Basecamp spike checks.
 
+//! Finding and running the Solidity compiler.
+//!
+//! The module compiles with a pinned `solc` release. Lookup order:
+//!
+//! 1. `$SOLIZONE_SOLC`, an explicit path;
+//! 2. the pinned release in `~/.solicamp/solc/<version>/solc`, downloaded once
+//!    from the official GitHub release and checked against a SHA-256 that is
+//!    compiled into this module;
+//! 3. if that download is impossible (offline): `solc` on `PATH`, then
+//!    Foundry's compiler cache (`~/.svm`, `~/Library/Application Support/svm`
+//!    on macOS, `~/.local/share/svm` on Linux), newest version first.
+
 use std::{
     env, fs,
     io::Write,
@@ -18,6 +30,107 @@ use std::{
 };
 
 use serde_json::{json, Value};
+use sha2::{Digest, Sha256};
+
+/// The compiler release this module is built and tested against.
+pub const PINNED_VERSION: &str = "0.8.28";
+
+struct Release {
+    asset: &'static str,
+    sha256: &'static str,
+}
+
+/// The official release asset for this platform, if there is one.
+fn release() -> Option<Release> {
+    if cfg!(target_os = "macos") {
+        // Universal binary (arm64 + x86_64).
+        Some(Release {
+            asset: "solc-macos",
+            sha256: "81515b0e53deaa266d549545ccaac0a5a96e6d4e8201c77f673b2c710976d9ea",
+        })
+    } else if cfg!(all(target_os = "linux", target_arch = "x86_64")) {
+        Some(Release {
+            asset: "solc-static-linux",
+            sha256: "9a0fb7e0db2c0641dbae1c5cc645dc686820c83af516226abb1c0a2f76636f25",
+        })
+    } else {
+        None
+    }
+}
+
+fn pinned_path() -> Option<PathBuf> {
+    Some(
+        PathBuf::from(env::var_os("HOME")?)
+            .join(".solicamp/solc")
+            .join(PINNED_VERSION)
+            .join("solc"),
+    )
+}
+
+fn sha256_hex(path: &Path) -> Result<String, String> {
+    let mut file = fs::File::open(path).map_err(|error| error.to_string())?;
+    let mut hasher = Sha256::new();
+
+    std::io::copy(&mut file, &mut hasher).map_err(|error| error.to_string())?;
+
+    Ok(hex::encode(hasher.finalize()))
+}
+
+/// Downloads the pinned compiler (once) and returns its path.
+fn ensure_pinned() -> Result<PathBuf, String> {
+    let target = pinned_path().ok_or("HOME is not set")?;
+
+    if target.is_file() {
+        return Ok(target);
+    }
+
+    let release = release().ok_or("no pinned solc for this platform")?;
+    let dir = target.parent().ok_or("bad path")?;
+
+    fs::create_dir_all(dir).map_err(|error| format!("cannot create {}: {error}", dir.display()))?;
+
+    let partial = dir.join("solc.part");
+    let url = format!(
+        "https://github.com/argotorg/solidity/releases/download/v{PINNED_VERSION}/{}",
+        release.asset
+    );
+
+    let status = Command::new("curl")
+        .args(["--fail", "--silent", "--show-error", "--location"])
+        .args(["--proto", "=https", "--tlsv1.2", "--max-time", "900"])
+        .arg("--output")
+        .arg(&partial)
+        .arg(&url)
+        .status()
+        .map_err(|error| format!("cannot run curl to download solc: {error}"))?;
+
+    if !status.success() {
+        let _ = fs::remove_file(&partial);
+        return Err(format!("downloading {url} failed ({status})"));
+    }
+
+    let actual = sha256_hex(&partial)?;
+
+    if actual != release.sha256 {
+        let _ = fs::remove_file(&partial);
+        return Err(format!(
+            "downloaded solc does not match the pinned checksum (expected {}, got {actual})",
+            release.sha256
+        ));
+    }
+
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+
+        fs::set_permissions(&partial, fs::Permissions::from_mode(0o755))
+            .map_err(|error| error.to_string())?;
+    }
+
+    fs::rename(&partial, &target).map_err(|error| error.to_string())?;
+
+    Ok(target)
+}
 
 pub fn find_solc() -> Result<PathBuf, String> {
     if let Some(explicit) = env::var_os("SOLIZONE_SOLC") {
@@ -33,6 +146,11 @@ pub fn find_solc() -> Result<PathBuf, String> {
         };
     }
 
+    let download_error = match ensure_pinned() {
+        Ok(path) => return Ok(path),
+        Err(error) => error,
+    };
+
     if let Some(found) = on_path("solc") {
         return Ok(found);
     }
@@ -41,11 +159,10 @@ pub fn find_solc() -> Result<PathBuf, String> {
         return Ok(found);
     }
 
-    Err(
-        "no Solidity compiler found: set SOLIZONE_SOLC, put solc on PATH, or run \
-         `forge build` once so Foundry caches one in ~/.svm"
-            .to_string(),
-    )
+    Err(format!(
+        "no Solidity compiler available: {download_error}. Connect to the internet once so \
+         the pinned solc {PINNED_VERSION} can be downloaded, or set SOLIZONE_SOLC to a solc binary"
+    ))
 }
 
 fn on_path(name: &str) -> Option<PathBuf> {
@@ -167,6 +284,42 @@ fn parse_combined_json(solc: &Path, stdout: &[u8]) -> Result<Value, String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    // Needs network: SOLIZONE_TEST_DOWNLOAD=1 cargo test downloads_the_pinned -- --nocapture
+    #[test]
+    fn downloads_the_pinned_compiler_when_asked() {
+        if std::env::var_os("SOLIZONE_TEST_DOWNLOAD").is_none() {
+            return;
+        }
+
+        let path = ensure_pinned().expect("download");
+        let out = Command::new(&path).arg("--version").output().unwrap();
+
+        assert!(String::from_utf8_lossy(&out.stdout).contains(PINNED_VERSION));
+        eprintln!("pinned solc at {}", path.display());
+    }
+
+    #[test]
+    fn checksums_are_computed_over_the_whole_file() {
+        let path = std::env::temp_dir().join(format!("solc-sha-{}", std::process::id()));
+        fs::write(&path, "abc").unwrap();
+
+        assert_eq!(
+            sha256_hex(&path).unwrap(),
+            "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
+        );
+
+        fs::remove_file(&path).unwrap();
+        assert!(sha256_hex(&path).is_err());
+    }
+
+    #[test]
+    fn this_platform_has_a_pinned_release_with_a_valid_checksum() {
+        if let Some(release) = release() {
+            assert_eq!(release.sha256.len(), 64);
+            assert!(release.sha256.chars().all(|c| c.is_ascii_hexdigit()));
+        }
+    }
 
     #[test]
     fn finds_the_newest_compiler_across_cache_folders() {
