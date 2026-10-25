@@ -9,6 +9,7 @@
 //! around it. The logic lives in `engine`, which is plain Rust.
 
 mod engine;
+mod rooms;
 mod solc;
 
 /// Methods of the Solizone module. `account` is the index of a pre-funded dev
@@ -20,6 +21,15 @@ pub trait SolizoneModule: Send + 'static {
 
     /// Stops the chain. Its data stays on disk.
     fn stop(&mut self) -> String;
+
+    /// Every room (separate local chain), `main` first: `{"rooms": [...]}`.
+    fn list_rooms(&mut self) -> String;
+
+    /// Creates a room, a new chain with its own id; it is not opened.
+    fn create_room(&mut self, name: String) -> String;
+
+    /// Switches to a room (stops the running chain, starts that one).
+    fn open_room(&mut self, id: String) -> String;
 
     /// `{"running", "chainId", "head", "halted", ...}`.
     fn status(&mut self) -> String;
@@ -106,6 +116,18 @@ impl SolizoneModule for Solizone {
 
     fn stop(&mut self) -> String {
         self.engine.stop().to_string()
+    }
+
+    fn list_rooms(&mut self) -> String {
+        json_or_error(self.engine.list_rooms())
+    }
+
+    fn create_room(&mut self, name: String) -> String {
+        json_or_error(self.engine.create_room(&name))
+    }
+
+    fn open_room(&mut self, id: String) -> String {
+        json_or_error(self.engine.open_room(&id))
     }
 
     fn status(&mut self) -> String {

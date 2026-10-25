@@ -22,7 +22,10 @@ use solizone_evm::{
     node::dev_accounts::DEV_ACCOUNTS,
 };
 
-use crate::solc;
+use crate::{
+    rooms::{Room, Rooms, MAIN_ID},
+    solc,
+};
 
 const DEPLOY_GAS: u64 = 3_000_000;
 const SEND_GAS: u64 = 1_000_000;
@@ -31,6 +34,10 @@ const RECEIPT_TIMEOUT: Duration = Duration::from_secs(20);
 #[derive(Default)]
 pub struct Engine {
     node: Option<EmbeddedNode>,
+    /// The room the running node belongs to.
+    room: Option<Room>,
+    /// Base directory holding the rooms (set by the first start).
+    base: Option<PathBuf>,
     solc: Option<PathBuf>,
 }
 
@@ -41,36 +48,102 @@ impl Engine {
             .ok_or_else(|| "the chain is not running; call start first".to_string())
     }
 
-    /// Starts the chain in `data_dir` (or recovers the one stored there).
+    /// Starts the main room in `data_dir` (or recovers the one stored there).
     pub fn start(&mut self, data_dir: &str) -> Result<Value, String> {
         if let Some(node) = &self.node {
-            return Ok(describe(node));
+            return Ok(self.describe(node));
         }
 
         if data_dir.trim().is_empty() {
             return Err("start needs a data directory".to_string());
         }
 
+        self.base = Some(PathBuf::from(data_dir));
+        self.open_room_in(MAIN_ID)
+    }
+
+    fn rooms(&self) -> Result<Rooms, String> {
+        match &self.base {
+            Some(base) => Ok(Rooms::new(base)),
+            None => Ok(Rooms::new(default_data_dir()?)),
+        }
+    }
+
+    /// All rooms, `main` first.
+    pub fn list_rooms(&self) -> Result<Value, String> {
+        let rooms = self.rooms()?;
+        let current = self.room.as_ref().map(|room| room.id.clone());
+
+        let list: Vec<Value> = rooms
+            .list()?
+            .iter()
+            .map(|room| {
+                let mut entry = room.to_json();
+                entry["open"] = json!(current.as_deref() == Some(room.id.as_str()));
+                entry
+            })
+            .collect();
+
+        Ok(json!({ "rooms": list }))
+    }
+
+    /// Creates a room (a fresh chain with its own id). It is not opened.
+    pub fn create_room(&mut self, name: &str) -> Result<Value, String> {
+        Ok(self.rooms()?.create(name)?.to_json())
+    }
+
+    /// Switches to another room: stops the running chain and starts that one.
+    pub fn open_room(&mut self, id: &str) -> Result<Value, String> {
+        if self.base.is_none() {
+            self.base = Some(PathBuf::from(default_data_dir()?));
+        }
+
+        // Validate before touching the running node.
+        self.rooms()?.get(id)?;
+
+        self.node.take().map(EmbeddedNode::stop);
+        self.room = None;
+
+        self.open_room_in(id)
+    }
+
+    fn open_room_in(&mut self, id: &str) -> Result<Value, String> {
+        let rooms = self.rooms()?;
+        let room = rooms.get(id)?;
+
         let node = EmbeddedNode::start(EmbeddedConfig {
+            chain_id: room.chain_id,
             block_time: Duration::from_millis(500),
-            ..EmbeddedConfig::local(data_dir)
+            ..EmbeddedConfig::local(rooms.data_dir(&room))
         })?;
 
-        let info = describe(&node);
+        self.room = Some(room);
+        let info = self.describe(&node);
         self.node = Some(node);
 
         Ok(info)
     }
 
+    fn describe(&self, node: &EmbeddedNode) -> Value {
+        let mut info = describe(node);
+
+        if let Some(room) = &self.room {
+            info["room"] = room.to_json();
+        }
+
+        info
+    }
+
     pub fn stop(&mut self) -> Value {
         let was_running = self.node.take().map(EmbeddedNode::stop).is_some();
+        self.room = None;
 
         json!({ "stopped": was_running })
     }
 
     pub fn status(&self) -> Value {
         match &self.node {
-            Some(node) => describe(node),
+            Some(node) => self.describe(node),
             None => json!({ "running": false }),
         }
     }
@@ -446,6 +519,62 @@ mod tests {
             engine.accounts()["accounts"].as_array().unwrap().len(),
             DEV_ACCOUNTS.len()
         );
+    }
+
+    #[test]
+    fn rooms_are_separate_chains_that_keep_their_own_history() {
+        let dir = temp_dir("rooms");
+        let mut engine = Engine::default();
+
+        let main = engine.start(dir.to_str().unwrap()).unwrap();
+        assert_eq!(main["room"]["id"], "main");
+
+        let deployed = engine.deploy(0, COUNTER_INITCODE.trim(), "").unwrap();
+        let main_address = deployed["contractAddress"].as_str().unwrap().to_string();
+        let main_head = engine.status()["head"].as_u64().unwrap();
+
+        let room = engine.create_room("  Workshop ").unwrap();
+        let id = room["id"].as_str().unwrap().to_string();
+        let room_chain = room["chainId"].as_u64().unwrap();
+        assert_ne!(room_chain, 9001);
+
+        // Creating does not switch.
+        assert_eq!(engine.status()["room"]["id"], "main");
+
+        let opened = engine.open_room(&id).unwrap();
+        assert_eq!(opened["chainId"], room_chain);
+        assert_eq!(opened["fresh"], true);
+        assert_eq!(opened["head"], 0);
+
+        // The main room's contract does not exist here, and the new chain signs for its own id.
+        assert_eq!(
+            engine.rpc(&format!(
+                r#"{{"jsonrpc":"2.0","id":1,"method":"eth_getCode","params":["{main_address}","latest"]}}"#
+            )),
+            r#"{"jsonrpc":"2.0","id":1,"result":"0x"}"#
+        );
+        let here = engine.deploy(0, COUNTER_INITCODE.trim(), "").unwrap();
+        assert_eq!(here["success"], true);
+
+        let list = engine.list_rooms().unwrap();
+        let rooms = list["rooms"].as_array().unwrap();
+        assert_eq!(rooms.len(), 2);
+        assert_eq!(rooms[0]["id"], "main");
+        assert_eq!(rooms[0]["open"], false);
+        assert_eq!(rooms[1]["open"], true);
+
+        // Back to main: its history is exactly as we left it.
+        let back = engine.open_room("main").unwrap();
+        assert_eq!(back["chainId"], 9001);
+        assert_eq!(back["fresh"], false);
+        assert_eq!(back["head"], main_head);
+
+        assert!(engine.open_room("missing").unwrap_err().contains("no room"));
+        // A failed switch leaves the chain running.
+        assert_eq!(engine.status()["room"]["id"], "main");
+
+        engine.stop();
+        std::fs::remove_dir_all(&dir).unwrap();
     }
 
     #[test]

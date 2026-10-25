@@ -59,6 +59,41 @@ Item {
         })
     }
 
+    property var rooms: []
+
+    function loadRooms() {
+        call("list_rooms", [], function (r) {
+            rooms = r.rooms
+            roomBox.model = rooms.map(function (x) {
+                return x.name + "  (chain " + x.chainId + ")"
+            })
+            for (var i = 0; i < rooms.length; i++)
+                if (rooms[i].open) roomBox.currentIndex = i
+        })
+    }
+
+    function switchRoom(index) {
+        if (index < 0 || index >= rooms.length || rooms[index].open) return
+        call("open_room", [rooms[index].id], function (s) {
+            log("✓ opened room " + s.room.name + " (chain " + s.chainId + ", head #" + s.head + ")")
+            deployed = ""
+            contracts = []
+            contractBox.model = []
+            refresh()
+            loadRooms()
+        })
+    }
+
+    function newRoom() {
+        var name = roomName.text.trim()
+        if (name === "") { log("✗ give the room a name"); return }
+        call("create_room", [name], function (r) {
+            log("✓ created room " + r.name + " (chain " + r.chainId + ")")
+            roomName.text = ""
+            loadRooms()
+        })
+    }
+
     function startChain() {
         // An empty directory means the module's default (~/.solicamp).
         call("start", [""], function (s) {
@@ -68,6 +103,7 @@ Item {
                 accountBox.model = a.accounts.map(function (x) { return x.index + "  " + x.address })
             })
             refresh()
+            loadRooms()
         })
     }
 
@@ -138,6 +174,14 @@ Item {
             Button { text: running ? "Chain running" : "Start chain"; enabled: !running; onClicked: startChain() }
             Label { text: "head " + head }
             Item { Layout.fillWidth: true }
+            ComboBox {
+                id: roomBox
+                Layout.preferredWidth: 260
+                enabled: running
+                onActivated: switchRoom(currentIndex)
+            }
+            TextField { id: roomName; placeholderText: "new room"; Layout.preferredWidth: 120; enabled: running }
+            Button { text: "Create"; enabled: running; onClicked: newRoom() }
             ComboBox { id: accountBox; Layout.preferredWidth: 380; enabled: running }
         }
 
