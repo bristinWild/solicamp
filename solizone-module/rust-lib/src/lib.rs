@@ -8,6 +8,7 @@
 //! (`codegen.rust.trait` in metadata.json) and generates the C-ABI scaffold
 //! around it. The logic lives in `engine`, which is plain Rust.
 
+mod collab;
 mod engine;
 mod rooms;
 mod solc;
