@@ -10,6 +10,7 @@
 
 mod collab;
 mod engine;
+mod net;
 mod rooms;
 mod solc;
 
@@ -47,6 +48,17 @@ pub trait SolizoneModule: Send + 'static {
     /// Handles a message (hex) received on the room topic:
     /// `{"send": [hex...], "applied": height|null, "note": text|null}`.
     fn collab_incoming(&mut self, payload: String) -> String;
+
+    /// Goes online: starts the Logos Messaging node (once) and carries the
+    /// open shared room's messages for you, now and after room switches.
+    fn net_start(&mut self) -> String;
+
+    /// Goes offline. Rooms and chains are untouched.
+    fn net_stop(&mut self) -> String;
+
+    /// `{"online", "phase", "connection", "topic", "error", "note", "sent",
+    /// "received", "applied"}`; `online` is false before `net_start`.
+    fn net_status(&mut self) -> String;
 
     /// A transaction's receipt, or `{"pending": true}` until a block has it.
     fn receipt(&mut self, tx_hash: String) -> String;
@@ -106,7 +118,17 @@ pub struct RustModuleContext;
 
 #[derive(Default)]
 struct Solizone {
-    engine: engine::Engine,
+    /// Shared with the network thread, which locks it only for short calls.
+    engine: std::sync::Arc<std::sync::Mutex<engine::Engine>>,
+    bridge: Option<net::Bridge>,
+}
+
+impl Solizone {
+    fn engine(&self) -> std::sync::MutexGuard<'_, engine::Engine> {
+        self.engine
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner())
+    }
 }
 
 fn json_or_error(result: Result<serde_json::Value, String>) -> String {
@@ -124,7 +146,7 @@ impl SolizoneModule for Solizone {
             Ok(data_dir)
         };
 
-        let result = dir.and_then(|dir| self.engine.start(&dir));
+        let result = dir.and_then(|dir| self.engine().start(&dir));
 
         #[cfg(not(test))]
         if let Ok(status) = &result {
@@ -135,79 +157,115 @@ impl SolizoneModule for Solizone {
     }
 
     fn stop(&mut self) -> String {
-        self.engine.stop().to_string()
+        self.engine().stop().to_string()
     }
 
     fn list_rooms(&mut self) -> String {
-        json_or_error(self.engine.list_rooms())
+        json_or_error(self.engine().list_rooms())
     }
 
     fn create_room(&mut self, name: String) -> String {
-        json_or_error(self.engine.create_room(&name))
+        json_or_error(self.engine().create_room(&name))
     }
 
     fn open_room(&mut self, id: String) -> String {
-        json_or_error(self.engine.open_room(&id))
+        json_or_error(self.engine().open_room(&id))
     }
 
     fn share_room(&mut self, id: String) -> String {
-        json_or_error(self.engine.share_room(&id))
+        json_or_error(self.engine().share_room(&id))
     }
 
     fn join_room(&mut self, invite: String) -> String {
-        json_or_error(self.engine.join_room(&invite))
+        json_or_error(self.engine().join_room(&invite))
     }
 
     fn collab_hello(&mut self) -> String {
-        json_or_error(self.engine.collab_hello())
+        json_or_error(self.engine().collab_hello())
     }
 
     fn collab_poll(&mut self) -> String {
-        json_or_error(self.engine.collab_poll())
+        json_or_error(self.engine().collab_poll())
     }
 
     fn collab_incoming(&mut self, payload: String) -> String {
-        json_or_error(self.engine.collab_incoming(&payload))
+        json_or_error(self.engine().collab_incoming(&payload))
+    }
+
+    fn net_start(&mut self) -> String {
+        if self.bridge.is_none() {
+            let (network, incoming) = net::LogosNet::new();
+
+            self.bridge = Some(net::Bridge::start(
+                self.engine.clone(),
+                network,
+                incoming,
+                net::Timing::default(),
+            ));
+        }
+
+        self.net_status()
+    }
+
+    fn net_stop(&mut self) -> String {
+        let was_online = self.bridge.is_some();
+
+        if let Some(bridge) = self.bridge.take() {
+            bridge.stop();
+        }
+
+        serde_json::json!({ "online": false, "wasOnline": was_online }).to_string()
+    }
+
+    fn net_status(&mut self) -> String {
+        match &self.bridge {
+            Some(bridge) => {
+                let mut status = bridge.status();
+                status["online"] = serde_json::Value::Bool(true);
+                status.to_string()
+            }
+            None => serde_json::json!({ "online": false }).to_string(),
+        }
     }
 
     fn receipt(&mut self, tx_hash: String) -> String {
-        json_or_error(self.engine.receipt(&tx_hash))
+        json_or_error(self.engine().receipt(&tx_hash))
     }
 
     fn status(&mut self) -> String {
-        self.engine.status().to_string()
+        self.engine().status().to_string()
     }
 
     fn accounts(&mut self) -> String {
-        self.engine.accounts().to_string()
+        self.engine().accounts().to_string()
     }
 
     fn compile(&mut self, source: String) -> String {
-        json_or_error(self.engine.compile(&source))
+        json_or_error(self.engine().compile(&source))
     }
 
     fn deploy(&mut self, account: u64, bytecode: String, constructor_args: String) -> String {
-        json_or_error(self.engine.deploy(account, &bytecode, &constructor_args))
+        json_or_error(self.engine().deploy(account, &bytecode, &constructor_args))
     }
 
     fn send(&mut self, account: u64, to: String, data: String, value_wei: String) -> String {
-        json_or_error(self.engine.send(account, &to, &data, &value_wei))
+        json_or_error(self.engine().send(account, &to, &data, &value_wei))
     }
 
     fn encode(&mut self, abi: String, function: String, args: String) -> String {
-        json_or_error(self.engine.encode(&abi, &function, &args))
+        json_or_error(self.engine().encode(&abi, &function, &args))
     }
 
     fn decode(&mut self, abi: String, function: String, data: String) -> String {
-        json_or_error(self.engine.decode(&abi, &function, &data))
+        json_or_error(self.engine().decode(&abi, &function, &data))
     }
 
     fn read(&mut self, to: String, data: String) -> String {
-        json_or_error(self.engine.read(&to, &data))
+        json_or_error(self.engine().read(&to, &data))
     }
 
     fn rpc(&mut self, request: String) -> String {
-        self.engine.rpc(&request)
+        self.engine().rpc(&request)
     }
 }
 

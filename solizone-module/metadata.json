@@ -7,7 +7,9 @@
     "category": "developer",
     "description": "A Solizone EVM node running inside Basecamp: compile Solidity, deploy and call contracts on a local chain",
     "main": "solizone_module_plugin",
-    "dependencies": [],
+    "dependencies": [
+        "delivery_module"
+    ],
     "codegen": {
         "rust": {
             "crate": "rust-lib",
@@ -21,15 +23,15 @@
                 "solc"
             ]
         },
-        "rust": {
-            "toolchain": "1.95.0"
-        },
         "external_libraries": [],
         "cmake": {
             "find_packages": [],
             "extra_sources": [],
             "extra_include_dirs": [],
             "extra_link_libraries": []
+        },
+        "rust": {
+            "toolchain": "1.95.0"
         }
     }
 }

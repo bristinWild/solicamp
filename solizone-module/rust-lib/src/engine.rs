@@ -32,6 +32,8 @@ use crate::{
 const DEPLOY_GAS: u64 = 3_000_000;
 const SEND_GAS: u64 = 1_000_000;
 const RECEIPT_TIMEOUT: Duration = Duration::from_secs(20);
+/// Most unpublished guest messages kept while the network is down.
+const MAX_OUTBOX: usize = 256;
 
 #[derive(Default)]
 pub struct Engine {
@@ -46,6 +48,9 @@ pub struct Engine {
     /// Guests only: the next nonce per dev account, counting transactions
     /// sent to the host that no block contains yet.
     guest_nonces: HashMap<u64, u64>,
+    /// Guests only: messages for the host (signed transactions) that the
+    /// network bridge has not published yet.
+    outbox: Vec<Vec<u8>>,
 }
 
 impl Engine {
@@ -219,6 +224,21 @@ impl Engine {
         }))
     }
 
+    /// The shared room the network should serve right now, if any:
+    /// `(content topic, is_host)`.
+    pub fn collab_room(&self) -> Option<(String, bool)> {
+        self.node.as_ref()?;
+        let session = self.session.as_ref()?;
+
+        Some((session.invite().topic(), session.is_host()))
+    }
+
+    /// Guest: the messages for the host that are waiting to be published
+    /// (signed transactions), oldest first. Emptied by the call.
+    pub fn take_outbox(&mut self) -> Vec<Vec<u8>> {
+        std::mem::take(&mut self.outbox)
+    }
+
     /// Creates a room (a fresh chain with its own id). It is not opened.
     pub fn create_room(&mut self, name: &str) -> Result<Value, String> {
         Ok(self.rooms()?.create(name)?.to_json())
@@ -257,6 +277,7 @@ impl Engine {
             None => None,
         };
         self.guest_nonces.clear();
+        self.outbox.clear();
 
         self.room = Some(room);
         let info = self.describe(&node);
@@ -286,6 +307,7 @@ impl Engine {
         let was_running = self.node.take().map(EmbeddedNode::stop).is_some();
         self.room = None;
         self.session = None;
+        self.outbox.clear();
 
         json!({ "stopped": was_running })
     }
@@ -482,6 +504,10 @@ impl Engine {
                 .as_ref()
                 .ok_or("not in a shared room")?
                 .submit(&encoded)?;
+
+            if self.outbox.len() < MAX_OUTBOX {
+                self.outbox.push(payload.clone());
+            }
 
             return Ok(json!({
                 "pending": true,
