@@ -17,6 +17,11 @@ Item {
     property int contractIndex: 0
     property string deployed: ""
     property var abiCache: ({})
+    property string role: ""
+    property string invite: ""
+    property var net: ({ online: false })
+    property string lastNote: ""
+    property var pendingTx: []
 
     readonly property string sample:
         "// SPDX-License-Identifier: MIT\n" +
@@ -56,7 +61,96 @@ Item {
         call("status", [], function (s) {
             running = s.running === true
             head = running ? "#" + s.head : "-"
+            role = (running && s.collab) ? s.collab.role : ""
         })
+    }
+
+    function openRoomId() {
+        for (var i = 0; i < rooms.length; i++)
+            if (rooms[i].open) return rooms[i].id
+        return ""
+    }
+
+    function resetRoomState() {
+        deployed = ""
+        contracts = []
+        contractBox.model = []
+        invite = ""
+        pendingTx = []
+    }
+
+    // Share the open room: show its invite and go online so people can join.
+    function shareRoom() {
+        var id = openRoomId()
+        if (id === "" || id === "main") { log("✗ open a room first (Main cannot be shared)"); return }
+        call("share_room", [id], function (r) {
+            invite = r.invite
+            role = r.role
+            log("✓ sharing this room as " + r.role + "; send the invite to the people you work with")
+            goOnline()
+        })
+    }
+
+    function joinRoom() {
+        var text = inviteInput.text.trim()
+        if (text === "") { log("✗ paste an invite first"); return }
+        call("join_room", [text], function (s) {
+            log("✓ joined room " + s.room.name + " (chain " + s.chainId + "); waiting for the host's chain")
+            inviteInput.text = ""
+            resetRoomState()
+            refresh()
+            loadRooms()
+            goOnline()
+        })
+    }
+
+    function goOnline() {
+        call("net_start", [], function (n) { net = n })
+    }
+
+    function goOffline() {
+        call("net_stop", [], function (n) {
+            net = { online: false }
+            log("✓ offline; your rooms and chains are untouched")
+        })
+    }
+
+    function netPoll() {
+        call("net_status", [], function (n) {
+            net = n
+            if (n.note && n.note !== lastNote) {
+                lastNote = n.note
+                log("ℹ " + n.note)
+            }
+        })
+    }
+
+    function netText() {
+        if (!net.online) return "offline"
+        var text = net.phase + " · " + (net.connection ? net.connection : "?")
+        if (net.topic) text += " · sent " + net.sent + ", received " + net.received
+        if (net.error) text += " · ⚠ " + net.error
+        return text
+    }
+
+    // A guest's transactions are ordered by the host; wait for its block.
+    function awaitReceipt(hash, done) {
+        var list = pendingTx.slice()
+        list.push({ hash: hash, done: done })
+        pendingTx = list
+    }
+
+    function checkPending() {
+        var list = pendingTx.slice()
+        for (var i = 0; i < list.length; i++) {
+            (function (item) {
+                call("receipt", [item.hash], function (r) {
+                    if (r.pending) return
+                    pendingTx = pendingTx.filter(function (p) { return p.hash !== item.hash })
+                    item.done(r)
+                })
+            })(list[i])
+        }
     }
 
     property var rooms: []
@@ -76,9 +170,7 @@ Item {
         if (index < 0 || index >= rooms.length || rooms[index].open) return
         call("open_room", [rooms[index].id], function (s) {
             log("✓ opened room " + s.room.name + " (chain " + s.chainId + ", head #" + s.head + ")")
-            deployed = ""
-            contracts = []
-            contractBox.model = []
+            resetRoomState()
             refresh()
             loadRooms()
         })
@@ -124,11 +216,25 @@ Item {
     function deploy() {
         var c = contracts[contractBox.currentIndex]
         call("deploy", [accountBox.currentIndex, c.bytecode, ""], function (r) {
-            if (!r.success) { log("✗ deploy reverted in " + r.txHash); return }
-            deployed = r.contractAddress
-            log("✓ " + c.name + " deployed at " + deployed + " (block " + parseInt(r.blockNumber) + ")")
-            refresh()
+            if (r.pending) {
+                log("⏳ deploy sent to the host; waiting for its block (" + r.txHash + ")")
+                awaitReceipt(r.txHash, function (done) { finishDeploy(c, done) })
+                return
+            }
+            finishDeploy(c, r)
         })
+    }
+
+    function finishDeploy(c, r) {
+        if (!r.success) { log("✗ deploy reverted in " + r.txHash); return }
+        deployed = r.contractAddress
+        log("✓ " + c.name + " deployed at " + deployed + " (block " + parseInt(r.blockNumber) + ")")
+        refresh()
+    }
+
+    function finishSend(name, r) {
+        log((r.success ? "✓ " : "✗ ") + name + " in block " + parseInt(r.blockNumber) + " (" + r.txHash + ")")
+        refresh()
     }
 
     function invoke(write) {
@@ -139,8 +245,12 @@ Item {
         call("encode", [currentAbi(), name, args], function (e) {
             if (write) {
                 call("send", [accountBox.currentIndex, deployed, e.data, "0"], function (r) {
-                    log((r.success ? "✓ " : "✗ ") + name + " in block " + parseInt(r.blockNumber) + " (" + r.txHash + ")")
-                    refresh()
+                    if (r.pending) {
+                        log("⏳ " + name + " sent to the host; waiting for its block (" + r.txHash + ")")
+                        awaitReceipt(r.txHash, function (done) { finishSend(name, done) })
+                        return
+                    }
+                    finishSend(name, r)
                 })
             } else {
                 call("read", [deployed, e.data], function (r) {
@@ -161,7 +271,14 @@ Item {
         interval: 2000
         repeat: true
         running: root.running
-        onTriggered: root.refresh()
+        onTriggered: { root.refresh(); if (root.net.online) root.netPoll() }
+    }
+
+    Timer {
+        interval: 1000
+        repeat: true
+        running: root.pendingTx.length > 0
+        onTriggered: root.checkPending()
     }
 
     ColumnLayout {
@@ -172,7 +289,7 @@ Item {
         RowLayout {
             spacing: 8
             Button { text: running ? "Chain running" : "Start chain"; enabled: !running; onClicked: startChain() }
-            Label { text: "head " + head }
+            Label { text: "head " + head + (role !== "" ? "  (" + role + ")" : "") }
             Item { Layout.fillWidth: true }
             ComboBox {
                 id: roomBox
@@ -184,6 +301,31 @@ Item {
             Button { text: "Create"; enabled: running; onClicked: newRoom() }
             ComboBox { id: accountBox; Layout.preferredWidth: 380; enabled: running }
         }
+
+        RowLayout {
+            spacing: 8
+            Button { text: "Share room"; enabled: running; onClicked: shareRoom() }
+            TextField { id: inviteInput; placeholderText: "paste an invite to join a shared room"; Layout.fillWidth: true; enabled: running; selectByMouse: true }
+            Button { text: "Join"; enabled: running; onClicked: joinRoom() }
+            Button { text: "Go offline"; visible: net.online === true; onClicked: goOffline() }
+        }
+
+        RowLayout {
+            spacing: 8
+            visible: invite !== ""
+            Label { text: "Invite:" }
+            TextField { id: inviteShown; text: invite; readOnly: true; Layout.fillWidth: true; selectByMouse: true }
+            Button { text: "Copy"; onClicked: { inviteShown.selectAll(); inviteShown.copy(); log("✓ invite copied") } }
+        }
+
+        Label {
+            visible: invite !== ""
+            Layout.fillWidth: true
+            wrapMode: Text.WordWrap
+            text: "Anyone holding this invite can join the room and read its traffic. Share it only with people you trust."
+        }
+
+        Label { Layout.fillWidth: true; elide: Text.ElideRight; text: "Network: " + netText() }
 
         ScrollView {
             Layout.fillWidth: true
