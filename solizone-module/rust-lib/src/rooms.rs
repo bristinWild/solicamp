@@ -45,6 +45,33 @@ impl Room {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Role {
+    Host,
+    Guest,
+}
+
+impl Role {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Role::Host => "host",
+            Role::Guest => "guest",
+        }
+    }
+}
+
+/// What a shared room needs to remember: the role and the keys.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CollabInfo {
+    pub role: Role,
+    /// Secret sealing all room traffic.
+    pub key: [u8; 32],
+    /// The host's address: the only signer guests trust.
+    pub host: alloy_primitives::Address,
+    /// The host's signing key (hex). Only present on the host's machine.
+    pub host_key: Option<String>,
+}
+
 pub struct Rooms {
     base: PathBuf,
 }
@@ -173,6 +200,102 @@ impl Rooms {
         fs::rename(&temporary, self.registry()).map_err(|error| error.to_string())
     }
 
+    /// Adds a room created elsewhere (joining an invite): the id and chain
+    /// id are the host's.
+    pub fn adopt(&self, id: &str, name: &str, chain_id: u64) -> Result<Room, String> {
+        let existing = self.list()?;
+
+        if existing.iter().any(|room| room.id == id) {
+            return Err("you are already in this room".to_string());
+        }
+
+        if existing.iter().any(|room| room.chain_id == chain_id) {
+            return Err("a room with this chain id already exists here".to_string());
+        }
+
+        let room = Room {
+            id: id.to_string(),
+            name: clean_name(name).unwrap_or_else(|_| "Shared room".to_string()),
+            chain_id,
+            created: unix_seconds(),
+        };
+
+        let mut stored = self.stored()?;
+        stored.push(room.clone());
+        self.save(&stored)?;
+
+        Ok(room)
+    }
+
+    fn collab_path(&self, room: &Room) -> PathBuf {
+        self.data_dir(room).join("collab.json")
+    }
+
+    pub fn collab(&self, room: &Room) -> Result<Option<CollabInfo>, String> {
+        let path = self.collab_path(room);
+
+        if !path.exists() {
+            return Ok(None);
+        }
+
+        let text = fs::read_to_string(&path)
+            .map_err(|error| format!("cannot read {}: {error}", path.display()))?;
+        let value: Value = serde_json::from_str(&text)
+            .map_err(|error| format!("{} is corrupt: {error}", path.display()))?;
+
+        let role = match value["role"].as_str() {
+            Some("host") => Role::Host,
+            Some("guest") => Role::Guest,
+            _ => return Err(format!("{} has no valid role", path.display())),
+        };
+
+        let key: [u8; 32] = hex::decode(value["key"].as_str().unwrap_or(""))
+            .ok()
+            .and_then(|bytes| bytes.try_into().ok())
+            .ok_or_else(|| format!("{} has a damaged key", path.display()))?;
+
+        let host = value["host"]
+            .as_str()
+            .and_then(|text| text.parse().ok())
+            .ok_or_else(|| format!("{} has no valid host address", path.display()))?;
+
+        Ok(Some(CollabInfo {
+            role,
+            key,
+            host,
+            host_key: value["hostKey"].as_str().map(str::to_string),
+        }))
+    }
+
+    pub fn set_collab(&self, room: &Room, info: &CollabInfo) -> Result<(), String> {
+        let dir = self.data_dir(room);
+        fs::create_dir_all(&dir).map_err(|error| error.to_string())?;
+
+        let mut body = json!({
+            "role": info.role.as_str(),
+            "key": hex::encode(info.key),
+            "host": info.host.to_string(),
+        });
+
+        if let Some(host_key) = &info.host_key {
+            body["hostKey"] = json!(host_key);
+        }
+
+        let path = self.collab_path(room);
+        fs::write(&path, body.to_string()).map_err(|error| error.to_string())?;
+
+        // The file may hold a signing key: owner-only.
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+
+            fs::set_permissions(&path, fs::Permissions::from_mode(0o600))
+                .map_err(|error| error.to_string())?;
+        }
+
+        Ok(())
+    }
+
     pub fn base(&self) -> &Path {
         &self.base
     }
@@ -260,6 +383,54 @@ mod tests {
 
         assert_eq!(rooms.get(&b.id).unwrap(), b);
         assert!(rooms.get("nope").is_err());
+
+        fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn collab_info_round_trips_and_adopting_refuses_duplicates() {
+        let dir = temp("collab");
+        let rooms = Rooms::new(&dir);
+
+        let room = rooms.adopt("abc123", "  Team ", 0x5A00_0042).unwrap();
+        assert_eq!(
+            (room.id.as_str(), room.name.as_str(), room.chain_id),
+            ("abc123", "Team", 0x5A00_0042)
+        );
+
+        assert!(rooms
+            .adopt("abc123", "Again", 0x5A00_0043)
+            .unwrap_err()
+            .contains("already"));
+        assert!(rooms
+            .adopt("other", "Clash", 0x5A00_0042)
+            .unwrap_err()
+            .contains("chain id"));
+
+        assert_eq!(rooms.collab(&room).unwrap(), None);
+
+        let info = CollabInfo {
+            role: Role::Host,
+            key: [7; 32],
+            host: alloy_primitives::Address::repeat_byte(9),
+            host_key: Some("aa".repeat(32)),
+        };
+        rooms.set_collab(&room, &info).unwrap();
+        assert_eq!(rooms.collab(&room).unwrap(), Some(info));
+
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+
+            let mode = fs::metadata(rooms.data_dir(&room).join("collab.json"))
+                .unwrap()
+                .permissions()
+                .mode();
+            assert_eq!(mode & 0o777, 0o600);
+        }
+
+        fs::write(rooms.data_dir(&room).join("collab.json"), "{}").unwrap();
+        assert!(rooms.collab(&room).is_err());
 
         fs::remove_dir_all(&dir).unwrap();
     }

@@ -5,6 +5,7 @@
 //! those into JSON strings (`{"error": "..."}` on failure).
 
 use std::{
+    collections::HashMap,
     path::PathBuf,
     time::{Duration, Instant},
 };
@@ -13,7 +14,7 @@ use alloy_consensus::{SignableTransaction, TxEip1559, TxEnvelope};
 use alloy_dyn_abi::{DynSolValue, FunctionExt, JsonAbiExt, Specifier};
 use alloy_eips::eip2718::Encodable2718;
 use alloy_json_abi::JsonAbi;
-use alloy_primitives::{Address, Bytes, TxKind, U256};
+use alloy_primitives::{keccak256, Address, Bytes, TxKind, U256};
 use alloy_signer::SignerSync;
 use alloy_signer_local::PrivateKeySigner;
 use serde_json::{json, Value};
@@ -23,7 +24,8 @@ use solizone_evm::{
 };
 
 use crate::{
-    rooms::{Room, Rooms, MAIN_ID},
+    collab::{self, Invite, Session},
+    rooms::{CollabInfo, Role, Room, Rooms, MAIN_ID},
     solc,
 };
 
@@ -39,6 +41,11 @@ pub struct Engine {
     /// Base directory holding the rooms (set by the first start).
     base: Option<PathBuf>,
     solc: Option<PathBuf>,
+    /// Collaboration state of the open room, if it is shared.
+    session: Option<Session>,
+    /// Guests only: the next nonce per dev account, counting transactions
+    /// sent to the host that no block contains yet.
+    guest_nonces: HashMap<u64, u64>,
 }
 
 impl Engine {
@@ -87,6 +94,131 @@ impl Engine {
         Ok(json!({ "rooms": list }))
     }
 
+    /// Makes a room shareable and returns its invite. The first call makes
+    /// you the host (new room key and host signing key); later calls return
+    /// the same invite. `main` cannot be shared.
+    pub fn share_room(&mut self, id: &str) -> Result<Value, String> {
+        if id == MAIN_ID {
+            return Err(
+                "Main is the canonical dev chain and cannot be shared; create a room".to_string(),
+            );
+        }
+
+        let rooms = self.rooms()?;
+        let room = rooms.get(id)?;
+
+        let info = match rooms.collab(&room)? {
+            Some(info) => info,
+            None => {
+                let signer = collab::new_host_key();
+                let info = CollabInfo {
+                    role: Role::Host,
+                    key: collab::new_room_key(),
+                    host: signer.address(),
+                    host_key: Some(collab::signer_to_hex(&signer)),
+                };
+
+                rooms.set_collab(&room, &info)?;
+                info
+            }
+        };
+
+        // The room may already be open without a session: start hosting now.
+        let is_open = self.room.as_ref().is_some_and(|open| open.id == room.id);
+
+        if is_open && self.session.is_none() {
+            if let Some(node) = &self.node {
+                self.session = Some(session_for(&room, &info, node)?);
+            }
+        }
+
+        let invite = invite_for(&room, &info);
+
+        Ok(json!({
+            "invite": invite.encode(),
+            "topic": invite.topic(),
+            "role": info.role.as_str(),
+        }))
+    }
+
+    /// Joins a room from an invite and opens it as a follower.
+    pub fn join_room(&mut self, invite: &str) -> Result<Value, String> {
+        let invite = Invite::decode(invite)?;
+
+        if self.base.is_none() {
+            self.base = Some(PathBuf::from(default_data_dir()?));
+        }
+
+        let rooms = self.rooms()?;
+        let room = rooms.adopt(&invite.room_id, &invite.name, invite.chain_id)?;
+
+        rooms.set_collab(
+            &room,
+            &CollabInfo {
+                role: Role::Guest,
+                key: invite.key,
+                host: invite.host,
+                host_key: None,
+            },
+        )?;
+
+        self.open_room(&room.id)
+    }
+
+    fn collab_parts(&mut self) -> Result<(&EmbeddedNode, &mut Session), String> {
+        let node = self
+            .node
+            .as_ref()
+            .ok_or("the chain is not running; call start first")?;
+        let session = self
+            .session
+            .as_mut()
+            .ok_or("this room is not shared; use share_room or join_room")?;
+
+        Ok((node, session))
+    }
+
+    /// Guest: the message that asks the host for the blocks we are missing.
+    /// Send it when joining and every few seconds while behind.
+    pub fn collab_hello(&mut self) -> Result<Value, String> {
+        let (node, session) = self.collab_parts()?;
+
+        if session.is_host() {
+            return Err("only guests ask the host for blocks".to_string());
+        }
+
+        Ok(json!({ "payload": hex::encode(session.hello(node)?) }))
+    }
+
+    /// Host: messages carrying the blocks produced since the last call.
+    pub fn collab_poll(&mut self) -> Result<Value, String> {
+        let (node, session) = self.collab_parts()?;
+
+        if !session.is_host() {
+            return Err("only the host publishes blocks".to_string());
+        }
+
+        let payloads: Vec<String> = session.poll(node)?.iter().map(hex::encode).collect();
+
+        Ok(json!({ "payloads": payloads }))
+    }
+
+    /// Handles one message received on the room topic (hex). Returns the
+    /// messages to publish in answer, the height a guest just applied and a
+    /// note for the user when something was refused.
+    pub fn collab_incoming(&mut self, payload: &str) -> Result<Value, String> {
+        let bytes = decode_hex(payload)?;
+        let (node, session) = self.collab_parts()?;
+
+        let outcome = session.handle(node, &bytes);
+
+        Ok(json!({
+            "send": outcome.send.iter().map(hex::encode).collect::<Vec<_>>(),
+            "applied": outcome.applied,
+            "note": outcome.note,
+        }))
+    }
+
     /// Creates a room (a fresh chain with its own id). It is not opened.
     pub fn create_room(&mut self, name: &str) -> Result<Value, String> {
         Ok(self.rooms()?.create(name)?.to_json())
@@ -103,6 +235,7 @@ impl Engine {
 
         self.node.take().map(EmbeddedNode::stop);
         self.room = None;
+        self.session = None;
 
         self.open_room_in(id)
     }
@@ -110,12 +243,20 @@ impl Engine {
     fn open_room_in(&mut self, id: &str) -> Result<Value, String> {
         let rooms = self.rooms()?;
         let room = rooms.get(id)?;
+        let collab = rooms.collab(&room)?;
 
         let node = EmbeddedNode::start(EmbeddedConfig {
             chain_id: room.chain_id,
+            follower: collab.as_ref().is_some_and(|info| info.role == Role::Guest),
             block_time: Duration::from_millis(500),
             ..EmbeddedConfig::local(rooms.data_dir(&room))
         })?;
+
+        self.session = match &collab {
+            Some(info) => Some(session_for(&room, info, &node)?),
+            None => None,
+        };
+        self.guest_nonces.clear();
 
         self.room = Some(room);
         let info = self.describe(&node);
@@ -131,12 +272,20 @@ impl Engine {
             info["room"] = room.to_json();
         }
 
+        if let Some(session) = &self.session {
+            info["collab"] = json!({
+                "role": if session.is_host() { "host" } else { "guest" },
+                "topic": session.invite().topic(),
+            });
+        }
+
         info
     }
 
     pub fn stop(&mut self) -> Value {
         let was_running = self.node.take().map(EmbeddedNode::stop).is_some();
         self.room = None;
+        self.session = None;
 
         json!({ "stopped": was_running })
     }
@@ -186,7 +335,7 @@ impl Engine {
     /// Deploys `bytecode` (creation code) with optional ABI-encoded
     /// constructor arguments appended, from dev account `account`.
     pub fn deploy(
-        &self,
+        &mut self,
         account: u64,
         bytecode: &str,
         constructor_args: &str,
@@ -199,7 +348,7 @@ impl Engine {
 
     /// Sends a transaction from dev account `account`.
     pub fn send(
-        &self,
+        &mut self,
         account: u64,
         to: &str,
         data: &str,
@@ -264,14 +413,18 @@ impl Engine {
     }
 
     fn transact(
-        &self,
+        &mut self,
         account: u64,
         to: TxKind,
         value: U256,
         data: Vec<u8>,
         gas_limit: u64,
     ) -> Result<Value, String> {
-        let node = self.node()?;
+        let guest = self
+            .session
+            .as_ref()
+            .is_some_and(|session| !session.is_host());
+        let chain_id = self.node()?.info().chain_id;
 
         let dev = DEV_ACCOUNTS
             .get(usize::try_from(account).map_err(|_| "account out of range")?)
@@ -287,7 +440,7 @@ impl Engine {
             .parse()
             .map_err(|error| format!("bad dev key: {error}"))?;
 
-        let nonce = hex_u64(
+        let mut nonce = hex_u64(
             self.json_rpc(
                 "eth_getTransactionCount",
                 json!([dev.address.to_string(), "pending"]),
@@ -296,8 +449,13 @@ impl Engine {
             .ok_or("nonce is not a string")?,
         )?;
 
+        if guest {
+            // Transactions we sent that no block holds yet still count.
+            nonce = nonce.max(self.guest_nonces.get(&account).copied().unwrap_or(0));
+        }
+
         let tx = TxEip1559 {
-            chain_id: node.info().chain_id,
+            chain_id,
             nonce,
             gas_limit,
             max_fee_per_gas: 0,
@@ -312,7 +470,27 @@ impl Engine {
             .sign_hash_sync(&tx.signature_hash())
             .map_err(|error| format!("signing failed: {error}"))?;
         let envelope: TxEnvelope = tx.into_signed(signature).into();
-        let raw = format!("0x{}", hex::encode(envelope.encoded_2718()));
+        let encoded = envelope.encoded_2718();
+
+        if guest {
+            // Hand the transaction to the host; the receipt appears once the
+            // host's block with it arrives (poll `receipt`).
+            self.guest_nonces.insert(account, nonce + 1);
+
+            let payload = self
+                .session
+                .as_ref()
+                .ok_or("not in a shared room")?
+                .submit(&encoded)?;
+
+            return Ok(json!({
+                "pending": true,
+                "txHash": keccak256(&encoded).to_string(),
+                "payload": hex::encode(payload),
+            }));
+        }
+
+        let raw = format!("0x{}", hex::encode(&encoded));
 
         let hash = self
             .json_rpc("eth_sendRawTransaction", json!([raw]))?
@@ -323,6 +501,18 @@ impl Engine {
         self.wait_for_receipt(&hash)
     }
 
+    /// The receipt of a transaction, or `{"pending": true}` while no block
+    /// holds it (in a shared room, until the host's block arrives).
+    pub fn receipt(&self, hash: &str) -> Result<Value, String> {
+        let receipt = self.json_rpc("eth_getTransactionReceipt", json!([hash.trim()]))?;
+
+        Ok(if receipt.is_null() {
+            json!({ "pending": true, "txHash": hash.trim() })
+        } else {
+            receipt_json(hash.trim(), &receipt)
+        })
+    }
+
     fn wait_for_receipt(&self, hash: &str) -> Result<Value, String> {
         let deadline = Instant::now() + RECEIPT_TIMEOUT;
 
@@ -330,15 +520,7 @@ impl Engine {
             let receipt = self.json_rpc("eth_getTransactionReceipt", json!([hash]))?;
 
             if !receipt.is_null() {
-                return Ok(json!({
-                    "txHash": hash,
-                    "status": receipt["status"],
-                    "success": receipt["status"] == "0x1",
-                    "contractAddress": receipt["contractAddress"],
-                    "blockNumber": receipt["blockNumber"],
-                    "gasUsed": receipt["gasUsed"],
-                    "logs": receipt["logs"],
-                }));
+                return Ok(receipt_json(hash, &receipt));
             }
 
             if Instant::now() >= deadline {
@@ -449,6 +631,43 @@ fn to_json(value: &DynSolValue) -> Value {
     }
 }
 
+fn receipt_json(hash: &str, receipt: &Value) -> Value {
+    json!({
+        "txHash": hash,
+        "status": receipt["status"],
+        "success": receipt["status"] == "0x1",
+        "contractAddress": receipt["contractAddress"],
+        "blockNumber": receipt["blockNumber"],
+        "gasUsed": receipt["gasUsed"],
+        "logs": receipt["logs"],
+    })
+}
+
+fn invite_for(room: &Room, info: &CollabInfo) -> Invite {
+    Invite {
+        room_id: room.id.clone(),
+        name: room.name.clone(),
+        chain_id: room.chain_id,
+        key: info.key,
+        host: info.host,
+    }
+}
+
+fn session_for(room: &Room, info: &CollabInfo, node: &EmbeddedNode) -> Result<Session, String> {
+    let invite = invite_for(room, info);
+
+    match info.role {
+        Role::Host => {
+            let signer = collab::signer_from_hex(
+                info.host_key.as_deref().ok_or("the host key is missing")?,
+            )?;
+
+            Session::host(invite, signer, node)
+        }
+        Role::Guest => Ok(Session::guest(invite)),
+    }
+}
+
 fn describe(node: &EmbeddedNode) -> Value {
     json!({
         "running": true,
@@ -507,7 +726,7 @@ mod tests {
 
     #[test]
     fn nothing_works_before_start_and_errors_are_clear() {
-        let engine = Engine::default();
+        let mut engine = Engine::default();
 
         assert_eq!(engine.status()["running"], false);
         assert!(engine
@@ -519,6 +738,161 @@ mod tests {
             engine.accounts()["accounts"].as_array().unwrap().len(),
             DEV_ACCOUNTS.len()
         );
+    }
+
+    fn wait_until(what: &str, mut condition: impl FnMut() -> bool) {
+        let deadline = Instant::now() + Duration::from_secs(15);
+
+        while !condition() {
+            assert!(Instant::now() < deadline, "timed out waiting for {what}");
+            std::thread::sleep(Duration::from_millis(25));
+        }
+    }
+
+    fn payloads(value: &Value) -> Vec<String> {
+        value["send"]
+            .as_array()
+            .or_else(|| value["payloads"].as_array())
+            .unwrap()
+            .iter()
+            .map(|p| p.as_str().unwrap().to_string())
+            .collect()
+    }
+
+    /// Delivers hex payloads to `to`, and whatever it answers back to `from`,
+    /// until the conversation ends.
+    fn exchange(from: &mut Engine, to: &mut Engine, mut queue: Vec<String>) {
+        let mut forward = true;
+
+        while !queue.is_empty() {
+            let receiver: &mut Engine = if forward { to } else { from };
+            let mut answers = Vec::new();
+
+            for payload in queue {
+                answers.extend(payloads(&receiver.collab_incoming(&payload).unwrap()));
+            }
+
+            queue = answers;
+            forward = !forward;
+        }
+    }
+
+    #[test]
+    fn two_engines_collaborate_in_a_shared_room() {
+        let host_dir = temp_dir("collab-host");
+        let guest_dir = temp_dir("collab-guest");
+
+        let mut host = Engine::default();
+        let mut guest = Engine::default();
+
+        host.start(host_dir.to_str().unwrap()).unwrap();
+        guest.start(guest_dir.to_str().unwrap()).unwrap();
+
+        // Main cannot be shared; other rooms can.
+        assert!(host
+            .share_room("main")
+            .unwrap_err()
+            .contains("cannot be shared"));
+        assert!(host.collab_poll().unwrap_err().contains("not shared"));
+
+        let room = host.create_room("Team").unwrap();
+        let id = room["id"].as_str().unwrap().to_string();
+        host.open_room(&id).unwrap();
+
+        let shared = host.share_room(&id).unwrap();
+        let invite = shared["invite"].as_str().unwrap().to_string();
+        assert_eq!(host.share_room(&id).unwrap()["invite"], invite.as_str());
+        assert_eq!(host.status()["collab"]["role"], "host");
+
+        // Role misuse is refused.
+        assert!(host.collab_hello().unwrap_err().contains("only guests"));
+
+        assert!(guest.join_room("junk").is_err());
+        let joined = guest.join_room(&invite).unwrap();
+        assert_eq!(joined["room"]["id"], id.as_str());
+        assert_eq!(joined["chainId"], room["chainId"]);
+        assert_eq!(joined["collab"]["role"], "guest");
+        assert_eq!(joined["head"], Value::Null, "a guest starts with no chain");
+        assert!(guest.join_room(&invite).unwrap_err().contains("already"));
+        assert!(guest.collab_poll().unwrap_err().contains("only the host"));
+
+        // Joining: ask for blocks, receive the host's genesis.
+        let hello = guest.collab_hello().unwrap();
+        exchange(
+            &mut guest,
+            &mut host,
+            vec![hello["payload"].as_str().unwrap().to_string()],
+        );
+        assert_eq!(guest.status()["head"], 0);
+
+        // The guest deploys: the transaction goes to the host, which orders it.
+        let sent = guest.deploy(0, COUNTER_INITCODE.trim(), "").unwrap();
+        assert_eq!(sent["pending"], true);
+        let hash = sent["txHash"].as_str().unwrap().to_string();
+        assert_eq!(guest.receipt(&hash).unwrap()["pending"], true);
+
+        let payload = sent["payload"].as_str().unwrap().to_string();
+        assert!(payloads(&host.collab_incoming(&payload).unwrap()).is_empty());
+
+        wait_until("the host's block", || host.status()["head"] == 1);
+
+        // The host publishes; the guest applies and now has the receipt.
+        let blocks = payloads(&host.collab_poll().unwrap());
+        assert_eq!(blocks.len(), 1);
+        exchange(&mut host, &mut guest, blocks);
+
+        let receipt = guest.receipt(&hash).unwrap();
+        assert_eq!(receipt["success"], true);
+        let address = receipt["contractAddress"].as_str().unwrap().to_string();
+
+        // Both sides see the same contract, and the guest can drive it.
+        for engine in [&mut host, &mut guest] {
+            let code = engine.rpc(&format!(
+                r#"{{"jsonrpc":"2.0","id":1,"method":"eth_getCode","params":["{address}","latest"]}}"#
+            ));
+            assert_ne!(code, r#"{"jsonrpc":"2.0","id":1,"result":"0x"}"#);
+        }
+
+        // Two quick sends from the same guest account get consecutive nonces.
+        let first = guest.send(0, &address, INCREMENT, "").unwrap();
+        let second = guest.send(0, &address, INCREMENT, "").unwrap();
+        for sent in [&first, &second] {
+            let payload = sent["payload"].as_str().unwrap().to_string();
+            host.collab_incoming(&payload).unwrap();
+        }
+
+        wait_until("both increments", || {
+            let value = host.read(&address, COUNT).unwrap();
+            hex_u64(value["result"].as_str().unwrap()).unwrap() == 2
+        });
+
+        let blocks = payloads(&host.collab_poll().unwrap());
+        exchange(&mut host, &mut guest, blocks);
+
+        let seen_by_guest = guest.read(&address, COUNT).unwrap();
+        assert_eq!(
+            hex_u64(seen_by_guest["result"].as_str().unwrap()).unwrap(),
+            2
+        );
+        assert_eq!(guest.status()["head"], host.status()["head"]);
+
+        // Both survive a restart with their roles and chains intact.
+        host.stop();
+        guest.stop();
+
+        host.start(host_dir.to_str().unwrap()).unwrap();
+        guest.start(guest_dir.to_str().unwrap()).unwrap();
+
+        let host_back = host.open_room(&id).unwrap();
+        let guest_back = guest.open_room(&id).unwrap();
+        assert_eq!(host_back["collab"]["role"], "host");
+        assert_eq!(guest_back["collab"]["role"], "guest");
+        assert_eq!(guest_back["head"], host_back["head"]);
+
+        host.stop();
+        guest.stop();
+        std::fs::remove_dir_all(&host_dir).unwrap();
+        std::fs::remove_dir_all(&guest_dir).unwrap();
     }
 
     #[test]

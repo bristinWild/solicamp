@@ -32,6 +32,25 @@ pub trait SolizoneModule: Send + 'static {
     /// Switches to a room (stops the running chain, starts that one).
     fn open_room(&mut self, id: String) -> String;
 
+    /// Makes a room shareable: `{"invite": "solicamp1:...", "topic": "..."}`.
+    fn share_room(&mut self, id: String) -> String;
+
+    /// Joins a room from an invite and opens it as a guest.
+    fn join_room(&mut self, invite: String) -> String;
+
+    /// Guest: `{"payload": hex}`, the message that asks the host for blocks.
+    fn collab_hello(&mut self) -> String;
+
+    /// Host: `{"payloads": [hex...]}`, blocks produced since the last call.
+    fn collab_poll(&mut self) -> String;
+
+    /// Handles a message (hex) received on the room topic:
+    /// `{"send": [hex...], "applied": height|null, "note": text|null}`.
+    fn collab_incoming(&mut self, payload: String) -> String;
+
+    /// A transaction's receipt, or `{"pending": true}` until a block has it.
+    fn receipt(&mut self, tx_hash: String) -> String;
+
     /// `{"running", "chainId", "head", "halted", ...}`.
     fn status(&mut self) -> String;
 
@@ -129,6 +148,30 @@ impl SolizoneModule for Solizone {
 
     fn open_room(&mut self, id: String) -> String {
         json_or_error(self.engine.open_room(&id))
+    }
+
+    fn share_room(&mut self, id: String) -> String {
+        json_or_error(self.engine.share_room(&id))
+    }
+
+    fn join_room(&mut self, invite: String) -> String {
+        json_or_error(self.engine.join_room(&invite))
+    }
+
+    fn collab_hello(&mut self) -> String {
+        json_or_error(self.engine.collab_hello())
+    }
+
+    fn collab_poll(&mut self) -> String {
+        json_or_error(self.engine.collab_poll())
+    }
+
+    fn collab_incoming(&mut self, payload: String) -> String {
+        json_or_error(self.engine.collab_incoming(&payload))
+    }
+
+    fn receipt(&mut self, tx_hash: String) -> String {
+        json_or_error(self.engine.receipt(&tx_hash))
     }
 
     fn status(&mut self) -> String {
