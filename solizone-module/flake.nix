@@ -33,6 +33,22 @@
       # libraries and keep each system's own outputs.
       systems = [ "aarch64-darwin" "x86_64-darwin" "aarch64-linux" "x86_64-linux" ];
 
+      # librocksdb-sys (a dependency of the node) runs bindgen, which needs
+      # libclang and its headers. macOS provides them; on Linux the Nix build
+      # sandbox does not, so point bindgen at them.
+      clangEnv = system:
+        let
+          pkgs = import logos-module-builder.inputs.nixpkgs { inherit system; };
+          clang = pkgs.llvmPackages.libclang;
+        in
+        if pkgs.stdenv.isLinux then {
+          LIBCLANG_PATH = "${clang.lib}/lib";
+          BINDGEN_EXTRA_CLANG_ARGS = builtins.concatStringsSep " " [
+            "-isystem ${clang.lib}/lib/clang/${pkgs.lib.versions.major clang.version}/include"
+            "-isystem ${pkgs.glibc.dev}/include"
+          ];
+        } else { };
+
       moduleFor = system: logos-module-builder.lib.mkLogosModule {
         src = ./.;
         configFile = ./metadata.json;
@@ -40,7 +56,7 @@
         rustEnv = {
           RAPIDSNARK_LIB_DIR = "${rust-rapidsnark.packages.${system}.rapidsnark}";
           LBC_ROOT_DIR = "${logos-blockchain-circuits.packages.${system}.default}";
-        };
+        } // clangEnv system;
       };
 
       built = builtins.listToAttrs (map (system: { name = system; value = moduleFor system; }) systems);
