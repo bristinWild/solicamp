@@ -25,6 +25,7 @@ const CHANNEL_FILE: &str = "channel_id";
 const KEY_FILE: &str = "sequencer_key";
 const ENABLED_FILE: &str = "enabled";
 const FUNDING_FILE: &str = "funding_address";
+const PIN_FILE: &str = "funding_pinned";
 
 /// Fee ceiling for one inscription transaction.
 pub const MAX_TX_FEE: u64 = 1_000_000;
@@ -76,6 +77,31 @@ impl PublishDir {
             .ok()
             .map(|text| text.trim().to_string())
             .filter(|text| !text.is_empty())
+    }
+
+    /// The funding address the user picked by hand, if any. Unlike the
+    /// automatic choice it survives turning publishing off.
+    pub fn pinned_funding(&self) -> Option<String> {
+        fs::read_to_string(self.dir.join(PIN_FILE))
+            .ok()
+            .map(|text| text.trim().to_string())
+            .filter(|text| !text.is_empty())
+    }
+
+    /// Pins `address`, or goes back to the automatic choice when it is `None`.
+    pub fn pin_funding(&self, address: Option<&str>) -> Result<(), String> {
+        let path = self.dir.join(PIN_FILE);
+
+        match address {
+            Some(address) => fs::create_dir_all(&self.dir)
+                .and_then(|()| fs::write(&path, address))
+                .map_err(|error| format!("failed to save the funding address: {error}")),
+            None => match fs::remove_file(&path) {
+                Ok(()) => Ok(()),
+                Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(()),
+                Err(error) => Err(format!("failed to save the funding address: {error}")),
+            },
+        }
     }
 
     pub fn set_funding_address(&self, address: &str) -> Result<(), String> {
@@ -240,6 +266,12 @@ pub trait Wallet {
 
     /// Spendable balance of `address`; an unknown address has none.
     fn balance(&self, address: &str) -> Result<u128, WalletError>;
+
+    /// What the wallet literally answered for `address` (reply or error
+    /// text). Used only to explain a zero balance.
+    fn raw_balance(&self, _address: &str) -> Option<String> {
+        None
+    }
 }
 
 /// The blockchain module inside Basecamp.
@@ -262,6 +294,15 @@ fn wallet_error(error: impl std::fmt::Display) -> WalletError {
 }
 
 impl Wallet for BasecampWallet {
+    fn raw_balance(&self, address: &str) -> Option<String> {
+        let text = match Self::client().wallet_get_balance(address) {
+            Ok(reply) => format!("reply {}", reply),
+            Err(error) => format!("error {}", error),
+        };
+
+        Some(text.chars().take(160).collect())
+    }
+
     fn addresses(&self) -> Result<Vec<String>, WalletError> {
         let reply = Self::client()
             .wallet_get_known_addresses()
@@ -284,7 +325,7 @@ impl Wallet for BasecampWallet {
 
     fn balance(&self, address: &str) -> Result<u128, WalletError> {
         match Self::client().wallet_get_balance(address) {
-            Ok(reply) => Ok(balance_in(&reply)),
+            Ok(reply) => balance_in(&reply),
             Err(error) => {
                 let text = error.to_string();
 
@@ -375,13 +416,53 @@ fn reply_is_empty(value: &Value) -> bool {
     }
 }
 
-/// The module returns the balance as a decimal string.
-fn balance_in(reply: &Value) -> u128 {
+fn balance_in(reply: &Value) -> Result<u128, WalletError> {
     match reply {
-        Value::String(text) => text.trim().parse().unwrap_or(0),
-        Value::Number(number) => number.as_u64().map_or(0, u128::from),
-        Value::Object(map) => map.values().next().map_or(0, balance_in),
-        _ => 0,
+        Value::Object(map) => {
+            if map.get("success") == Some(&Value::Bool(false)) {
+                let error = map
+                    .get("error")
+                    .and_then(Value::as_str)
+                    .unwrap_or("unknown wallet error");
+
+                if error
+                    .to_ascii_lowercase()
+                    .contains("unknown wallet address")
+                {
+                    return Ok(0);
+                }
+
+                return Err(WalletError::Other(error.to_string()));
+            }
+
+            let value = map
+                .get("value")
+                .or_else(|| map.get("balance"))
+                .ok_or_else(|| WalletError::Other(format!("missing balance field: {reply}")))?;
+
+            balance_in(value)
+        }
+
+        Value::String(text) => {
+            if let Ok(inner) = serde_json::from_str::<Value>(text) {
+                if !inner.is_string() {
+                    return balance_in(&inner);
+                }
+            }
+
+            text.trim()
+                .parse::<u128>()
+                .map_err(|e| WalletError::Other(format!("invalid balance {text:?}: {e}")))
+        }
+
+        Value::Number(number) => number
+            .to_string()
+            .parse::<u128>()
+            .map_err(|e| WalletError::Other(e.to_string())),
+
+        _ => Err(WalletError::Other(format!(
+            "unexpected balance reply: {reply}"
+        ))),
     }
 }
 
@@ -389,6 +470,27 @@ fn balance_in(reply: &Value) -> u128 {
 pub struct Funding {
     pub address: Result<Option<String>, WalletError>,
     pub balance: Option<Result<u128, WalletError>>,
+    /// What the wallet said about each address it was asked about:
+    /// (address, balance or error text). Shown in the status for diagnosis.
+    pub checked: Vec<(String, String)>,
+}
+
+fn describe_for(wallet: &dyn Wallet, address: &str, result: &Result<u128, WalletError>) -> String {
+    match result {
+        Ok(0) => match wallet.raw_balance(address) {
+            Some(raw) => format!("0 (wallet said: {raw})"),
+            None => "0".to_string(),
+        },
+        other => describe_balance(other),
+    }
+}
+
+fn describe_balance(result: &Result<u128, WalletError>) -> String {
+    match result {
+        Ok(funds) => funds.to_string(),
+        Err(WalletError::NodeOffline) => "error: node offline".to_string(),
+        Err(WalletError::Other(text)) => format!("error: {text}"),
+    }
 }
 
 /// Picks the funding address. The wallet holds several keys (mining rewards,
@@ -402,6 +504,7 @@ pub fn choose_funding(wallet: &dyn Wallet, saved: Option<&str>) -> Funding {
             return Funding {
                 address: Err(error),
                 balance: None,
+                checked: Vec::new(),
             }
         }
     };
@@ -410,21 +513,30 @@ pub fn choose_funding(wallet: &dyn Wallet, saved: Option<&str>) -> Funding {
         return Funding {
             address: Ok(None),
             balance: None,
+            checked: Vec::new(),
         };
     }
 
     if let Some(saved) = saved.filter(|saved| list.iter().any(|address| address == saved)) {
+        let balance = wallet.balance(saved);
+
         return Funding {
             address: Ok(Some(saved.to_string())),
-            balance: Some(wallet.balance(saved)),
+            checked: vec![(saved.to_string(), describe_for(wallet, saved, &balance))],
+            balance: Some(balance),
         };
     }
 
     let mut best: Option<(String, u128)> = None;
     let mut first_error = None;
+    let mut checked = Vec::new();
 
     for address in &list {
-        match wallet.balance(address) {
+        let balance = wallet.balance(address);
+
+        checked.push((address.clone(), describe_for(wallet, address, &balance)));
+
+        match balance {
             Ok(funds) if best.as_ref().is_none_or(|(_, most)| funds > *most) => {
                 best = Some((address.clone(), funds));
             }
@@ -439,14 +551,17 @@ pub fn choose_funding(wallet: &dyn Wallet, saved: Option<&str>) -> Funding {
         (Some((address, funds)), _) => Funding {
             address: Ok(Some(address)),
             balance: Some(Ok(funds)),
+            checked,
         },
         (None, Some(error)) => Funding {
             address: Ok(Some(list[0].clone())),
             balance: Some(Err(error)),
+            checked,
         },
         (None, None) => Funding {
             address: Ok(Some(list[0].clone())),
             balance: Some(Ok(0)),
+            checked,
         },
     }
 }
@@ -464,6 +579,10 @@ pub struct Inputs<'a> {
     pub running: bool,
     pub wallet_address: Result<Option<String>, WalletError>,
     pub balance: Option<Result<u128, WalletError>>,
+    /// Per-address balances the wallet reported, for the status.
+    pub checked: &'a [(String, String)],
+    /// The funding address was picked by hand.
+    pub pinned: bool,
     pub head: Option<u64>,
     pub progress: Option<&'a PublicationState>,
 }
@@ -487,7 +606,11 @@ pub fn state_name(inputs: &Inputs) -> &'static str {
         Ok(Some(_)) => {}
     }
 
-    if !matches!(inputs.balance, Some(Ok(balance)) if balance > 0) {
+    // A balance that cannot be read (the node may still be catching up) is
+    // no proof of an empty wallet: once the publisher runs, trust it.
+    let unreadable = inputs.running && matches!(inputs.balance, Some(Err(_)));
+
+    if !unreadable && !matches!(inputs.balance, Some(Ok(balance)) if balance > 0) {
         return "needs_funding";
     }
 
@@ -539,7 +662,15 @@ pub fn status_json(inputs: &Inputs, keys: Option<&Keys>) -> Value {
             Err(WalletError::Other(error)) => format!("Wallet unavailable: {error}"),
             _ => "The Basecamp wallet has no address yet; create one first.".to_string(),
         },
-        "needs_funding" => "Add funds to the wallet address to pay publishing fees.".to_string(),
+        "needs_funding" => match &inputs.balance {
+            Some(Err(WalletError::NodeOffline)) => {
+                "Start the Logos blockchain node in Basecamp to read the wallet balance.".to_string()
+            }
+            Some(Err(WalletError::Other(error))) => format!(
+                "Could not read the wallet balance yet: {error}. The node may still be catching up; pick the address that holds your funds below."
+            ),
+            _ => "Add funds to the wallet address to pay publishing fees.".to_string(),
+        },
         "error" => inputs
             .progress
             .and_then(|progress| progress.failed.clone())
@@ -560,6 +691,20 @@ pub fn status_json(inputs: &Inputs, keys: Option<&Keys>) -> Value {
             .as_ref()
             .and_then(|balance| balance.as_ref().ok())
             .map(|balance| balance.to_string()),
+        "balanceError": inputs
+            .balance
+            .as_ref()
+            .and_then(|balance| balance.as_ref().err())
+            .map(|error| match error {
+                WalletError::NodeOffline => "node offline".to_string(),
+                WalletError::Other(text) => text.clone(),
+            }),
+        "pinned": inputs.pinned,
+        "wallet": inputs
+            .checked
+            .iter()
+            .map(|(address, balance)| json!({ "address": address, "balance": balance }))
+            .collect::<Vec<_>>(),
         "head": inputs.head,
         "nextHeight": inputs.progress.map(|progress| progress.next_height),
         "onChain": on_chain,
@@ -594,6 +739,8 @@ mod tests {
             running: true,
             wallet_address: Ok(Some(address())),
             balance: Some(Ok(100)),
+            checked: &[],
+            pinned: false,
             head: Some(10),
             progress: None,
         }
@@ -803,6 +950,8 @@ mod tests {
         let funding = choose_funding(&wallet, None);
         assert_eq!(funding.address, Ok(Some(pow.clone())));
         assert_eq!(funding.balance, Some(Ok(49)));
+        assert_eq!(funding.checked.len(), 3);
+        assert_eq!(funding.checked[1], (pow.clone(), "49".to_string()));
 
         // The address already in use stays, even if another now holds more.
         let funding = choose_funding(&wallet, Some(&stake));
@@ -880,9 +1029,60 @@ mod tests {
         assert_eq!(first_address_in(&json!([])), None);
         assert_eq!(first_address_in(&json!(["short"])), None);
 
-        assert_eq!(balance_in(&json!("1500")), 1500);
-        assert_eq!(balance_in(&json!(7)), 7);
-        assert_eq!(balance_in(&json!({ "value": "9" })), 9);
-        assert_eq!(balance_in(&json!("oops")), 0);
+        assert_eq!(balance_in(&json!("1500")), Ok(1500));
+        assert_eq!(balance_in(&json!(7)), Ok(7));
+        assert_eq!(balance_in(&json!({ "value": "9" })), Ok(9));
+        assert!(balance_in(&json!("oops")).is_err());
+        assert_eq!(
+            balance_in(&json!({
+                "error": null,
+                "success": true,
+                "value": "4916828751"
+            })),
+            Ok(4916828751)
+        );
+    }
+
+    #[test]
+    fn a_picked_funding_address_is_kept_until_cleared() {
+        let dir = PublishDir::new(&temp_dir("pin"));
+
+        assert_eq!(dir.pinned_funding(), None);
+
+        dir.pin_funding(Some(&address())).unwrap();
+        assert_eq!(dir.pinned_funding(), Some(address()));
+
+        // Turning publishing off forgets the automatic choice, not the pick.
+        dir.set_funding_address("cd").unwrap();
+        dir.set_enabled(true).unwrap();
+        dir.set_enabled(false).unwrap();
+        assert_eq!(dir.funding_address(), None);
+        assert_eq!(dir.pinned_funding(), Some(address()));
+
+        dir.pin_funding(None).unwrap();
+        assert_eq!(dir.pinned_funding(), None);
+        dir.pin_funding(None).unwrap();
+    }
+
+    #[test]
+    fn an_unreadable_balance_is_reported_not_shown_as_zero() {
+        let mut inputs = base();
+        inputs.running = false;
+        inputs.balance = Some(Err(WalletError::Other("Ledger state not found".into())));
+
+        assert_eq!(state_name(&inputs), "needs_funding");
+
+        let status = status_json(&inputs, None);
+
+        assert!(status["message"]
+            .as_str()
+            .unwrap()
+            .contains("Ledger state not found"));
+        assert_eq!(status["balanceError"], "Ledger state not found");
+        assert!(status["balance"].is_null());
+
+        // A running publisher is not stopped by a failed read.
+        inputs.running = true;
+        assert_eq!(state_name(&inputs), "syncing");
     }
 }

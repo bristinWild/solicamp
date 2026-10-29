@@ -248,6 +248,32 @@ pub fn compile(solc: &Path, source: &str) -> Result<Value, String> {
     parse_combined_json(solc, &output.stdout)
 }
 
+/// Compiles a file of the workspace, following its imports (`import "./A.sol";`
+/// and paths relative to the workspace). `file` is relative to `root`. The
+/// result lists the file's contracts and those of everything it imports; each
+/// entry also names the `file` it comes from.
+pub fn compile_file(solc: &Path, root: &Path, file: &Path) -> Result<Value, String> {
+    let output = Command::new(solc)
+        .current_dir(root)
+        .args([
+            "--combined-json",
+            "abi,bin",
+            "--optimize",
+            "--base-path",
+            ".",
+        ])
+        .arg(file)
+        .stdin(Stdio::null())
+        .output()
+        .map_err(|error| format!("failed to start {}: {error}", solc.display()))?;
+
+    if !output.status.success() {
+        return Err(String::from_utf8_lossy(&output.stderr).trim().to_string());
+    }
+
+    parse_combined_json(solc, &output.stdout)
+}
+
 fn parse_combined_json(solc: &Path, stdout: &[u8]) -> Result<Value, String> {
     let parsed: Value = serde_json::from_slice(stdout)
         .map_err(|error| format!("unreadable solc output: {error}"))?;
@@ -273,6 +299,7 @@ fn parse_combined_json(solc: &Path, stdout: &[u8]) -> Result<Value, String> {
 
         out.push(json!({
             "name": key.rsplit(':').next().unwrap_or(key),
+            "file": key.rsplit_once(':').map(|(file, _)| file).unwrap_or(""),
             "abi": abi,
             "bytecode": format!("0x{bin}"),
         }));
@@ -297,6 +324,51 @@ mod tests {
 
         assert!(String::from_utf8_lossy(&out.stdout).contains(PINNED_VERSION));
         eprintln!("pinned solc at {}", path.display());
+    }
+
+    // Uses an installed solc when there is one (skipped otherwise).
+    #[test]
+    fn compiles_a_file_with_its_imports() {
+        let Ok(solc) = find_solc() else { return };
+
+        let root = std::env::temp_dir().join(format!("solc-imports-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&root);
+        fs::create_dir_all(root.join("lib")).unwrap();
+
+        fs::write(
+            root.join("lib/Base.sol"),
+            "// SPDX-License-Identifier: MIT\npragma solidity ^0.8.20;\ncontract Base { uint public x = 7; }\n",
+        )
+        .unwrap();
+        fs::write(
+            root.join("Main.sol"),
+            "// SPDX-License-Identifier: MIT\npragma solidity ^0.8.20;\nimport \"./lib/Base.sol\";\ncontract Main is Base {}\n",
+        )
+        .unwrap();
+
+        let out = compile_file(&solc, &root, Path::new("Main.sol")).unwrap();
+        let found: Vec<(String, String)> = out["contracts"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|c| {
+                (
+                    c["name"].as_str().unwrap().into(),
+                    c["file"].as_str().unwrap().into(),
+                )
+            })
+            .collect();
+
+        assert!(
+            found.contains(&("Main".into(), "Main.sol".into())),
+            "{found:?}"
+        );
+        assert!(
+            found.contains(&("Base".into(), "lib/Base.sol".into())),
+            "{found:?}"
+        );
+
+        let _ = fs::remove_dir_all(&root);
     }
 
     #[test]

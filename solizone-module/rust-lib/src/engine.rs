@@ -27,7 +27,7 @@ use crate::{
     collab::{self, Invite, Session},
     publish::{self, PublishDir, Wallet},
     rooms::{CollabInfo, Role, Room, Rooms, MAIN_ID},
-    solc,
+    solc, workspace,
 };
 
 const DEPLOY_GAS: u64 = 3_000_000;
@@ -333,11 +333,19 @@ impl Engine {
         let is_host = self.session.as_ref().is_none_or(Session::is_host);
         let should_run = enabled && is_host;
 
+        // An address the user picked by hand is used as it is, even when its
+        // balance cannot be read yet.
+        let pinned = dir.pinned_funding();
+
         // The wallet has several keys; pay from the one that holds funds.
         let publish::Funding {
             address: wallet_address,
             balance,
-        } = publish::choose_funding(wallet, dir.funding_address().as_deref());
+            checked,
+        } = publish::choose_funding(
+            wallet,
+            pinned.as_deref().or(dir.funding_address().as_deref()),
+        );
 
         let mut running = node.publication_state().is_some();
 
@@ -347,8 +355,13 @@ impl Engine {
         }
 
         if should_run && !running {
-            if let (Ok(Some(address)), Some(Ok(funds))) = (&wallet_address, &balance) {
-                if *funds > 0 {
+            if let (Ok(Some(address)), Some(read)) = (&wallet_address, &balance) {
+                let usable = match read {
+                    Ok(funds) => *funds > 0,
+                    Err(_) => pinned.is_some(),
+                };
+
+                if usable {
                     let keys = dir.keys()?;
 
                     dir.set_funding_address(address)?;
@@ -383,6 +396,8 @@ impl Engine {
                 running,
                 wallet_address,
                 balance,
+                checked: &checked,
+                pinned: pinned.is_some(),
                 head: node.head_height(),
                 progress: progress.as_ref(),
             },
@@ -418,6 +433,46 @@ impl Engine {
         }
 
         dir.set_enabled(enabled)?;
+
+        self.publish_status(wallet, adapter)
+    }
+
+    /// Pays publishing fees from `address` (one of the wallet's addresses),
+    /// or goes back to the automatic choice when `address` is empty.
+    pub fn publish_use_address<N>(
+        &self,
+        address: &str,
+        wallet: &dyn Wallet,
+        adapter: impl FnOnce() -> N,
+    ) -> Result<Value, String>
+    where
+        N: solizone_evm::publication::logos::LogosNode + Clone + Send + Sync + 'static,
+    {
+        let node = self.node()?;
+        let dir = self.publish_dir()?;
+        let address = address.trim().trim_start_matches("0x").to_ascii_lowercase();
+
+        if address.is_empty() {
+            dir.pin_funding(None)?;
+        } else {
+            publish::parse_hex_32(&address)?;
+
+            let known = wallet.addresses().map_err(|error| match error {
+                publish::WalletError::NodeOffline => {
+                    "start the Logos blockchain node in Basecamp first".to_string()
+                }
+                publish::WalletError::Other(text) => text,
+            })?;
+
+            if !known.contains(&address) {
+                return Err("that address is not in the Basecamp wallet".to_string());
+            }
+
+            dir.pin_funding(Some(&address))?;
+        }
+
+        // The publisher restarts with the new address on the next status.
+        node.stop_publishing();
 
         self.publish_status(wallet, adapter)
     }
@@ -465,6 +520,58 @@ impl Engine {
         }
 
         solc::compile(self.solc.as_ref().expect("set above"), source)
+    }
+
+    // -- contract files -----------------------------------------------------
+
+    /// The open room's contracts folder.
+    fn workspace(&self) -> Result<PathBuf, String> {
+        let room = self
+            .room
+            .as_ref()
+            .ok_or("no room is open; start the chain first")?;
+
+        Ok(workspace::root(&self.rooms()?.data_dir(room)))
+    }
+
+    pub fn fs_list(&self) -> Result<Value, String> {
+        workspace::list(&self.workspace()?)
+    }
+
+    pub fn fs_read(&self, path: &str) -> Result<Value, String> {
+        workspace::read(&self.workspace()?, path)
+    }
+
+    pub fn fs_write(&self, path: &str, content: &str) -> Result<Value, String> {
+        workspace::write(&self.workspace()?, path, content)
+    }
+
+    pub fn fs_create(&self, path: &str, content: &str) -> Result<Value, String> {
+        workspace::create(&self.workspace()?, path, content)
+    }
+
+    pub fn fs_mkdir(&self, path: &str) -> Result<Value, String> {
+        workspace::mkdir(&self.workspace()?, path)
+    }
+
+    pub fn fs_rename(&self, from: &str, to: &str) -> Result<Value, String> {
+        workspace::rename(&self.workspace()?, from, to)
+    }
+
+    pub fn fs_delete(&self, path: &str) -> Result<Value, String> {
+        workspace::delete(&self.workspace()?, path)
+    }
+
+    /// Compiles a saved workspace file together with the files it imports.
+    pub fn compile_file(&mut self, path: &str) -> Result<Value, String> {
+        let root = self.workspace()?;
+        let file = workspace::existing_file(&root, path)?;
+
+        if self.solc.is_none() {
+            self.solc = Some(solc::find_solc()?);
+        }
+
+        solc::compile_file(self.solc.as_ref().expect("set above"), &root, &file)
     }
 
     /// One raw JSON-RPC request in, one response out.

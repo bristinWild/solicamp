@@ -14,6 +14,7 @@ mod net;
 mod publish;
 mod rooms;
 mod solc;
+mod workspace;
 
 /// Methods of the Solizone module. `account` is the index of a pre-funded dev
 /// account (see `accounts`); amounts are decimal wei strings; bytecode, calldata
@@ -75,6 +76,11 @@ pub trait SolizoneModule: Send + 'static {
     /// Turns publishing off for the open room and returns the status.
     fn publish_stop(&mut self) -> String;
 
+    /// Pays publishing fees from this wallet address (64 hex characters, one of
+    /// the Basecamp wallet's addresses); an empty string goes back to the
+    /// automatic choice. Returns the status.
+    fn publish_use_address(&mut self, address: String) -> String;
+
     /// Uses an existing channel id and sequencer key (64 hex characters
     /// each, or the path of a file holding them) for the open room. Publishing
     /// must be off.
@@ -91,6 +97,33 @@ pub trait SolizoneModule: Send + 'static {
 
     /// Compiles one Solidity source: `{"contracts": [{"name", "abi", "bytecode"}]}`.
     fn compile(&mut self, source: String) -> String;
+
+    /// Compiles a saved file of the open room's contracts folder, with the
+    /// files it imports: `{"contracts": [{"name", "file", "abi", "bytecode"}]}`.
+    fn compile_file(&mut self, path: String) -> String;
+
+    /// The open room's contract files and folders, parents first:
+    /// `{"entries": [{"path", "kind": "dir"|"file"}]}`. Paths are relative to
+    /// the room's contracts folder.
+    fn fs_list(&mut self) -> String;
+
+    /// `{"path", "content"}` of a `.sol` file.
+    fn fs_read(&mut self, path: String) -> String;
+
+    /// Saves a `.sol` file, creating folders as needed; replaces the file.
+    fn fs_write(&mut self, path: String, content: String) -> String;
+
+    /// Creates a `.sol` file; fails if it already exists.
+    fn fs_create(&mut self, path: String, content: String) -> String;
+
+    /// Creates a folder.
+    fn fs_mkdir(&mut self, path: String) -> String;
+
+    /// Renames or moves a file or folder.
+    fn fs_rename(&mut self, from: String, to: String) -> String;
+
+    /// Deletes a file, or a folder with everything in it.
+    fn fs_delete(&mut self, path: String) -> String;
 
     /// Deploys creation `bytecode` (with ABI-encoded `constructor_args`
     /// appended) and waits for the receipt.
@@ -272,10 +305,19 @@ impl SolizoneModule for Solizone {
     }
 
     fn publish_stop(&mut self) -> String {
-        json_or_error(
-            self.engine()
-                .publish_set(false, &publish::BasecampWallet, blockchain_adapter),
-        )
+        json_or_error(self.engine().publish_set(
+            false,
+            &publish::BasecampWallet,
+            blockchain_adapter,
+        ))
+    }
+
+    fn publish_use_address(&mut self, address: String) -> String {
+        json_or_error(self.engine().publish_use_address(
+            &address,
+            &publish::BasecampWallet,
+            blockchain_adapter,
+        ))
     }
 
     fn publish_import(&mut self, channel_id: String, sequencer_key: String) -> String {
@@ -296,6 +338,38 @@ impl SolizoneModule for Solizone {
 
     fn compile(&mut self, source: String) -> String {
         json_or_error(self.engine().compile(&source))
+    }
+
+    fn compile_file(&mut self, path: String) -> String {
+        json_or_error(self.engine().compile_file(&path))
+    }
+
+    fn fs_list(&mut self) -> String {
+        json_or_error(self.engine().fs_list())
+    }
+
+    fn fs_read(&mut self, path: String) -> String {
+        json_or_error(self.engine().fs_read(&path))
+    }
+
+    fn fs_write(&mut self, path: String, content: String) -> String {
+        json_or_error(self.engine().fs_write(&path, &content))
+    }
+
+    fn fs_create(&mut self, path: String, content: String) -> String {
+        json_or_error(self.engine().fs_create(&path, &content))
+    }
+
+    fn fs_mkdir(&mut self, path: String) -> String {
+        json_or_error(self.engine().fs_mkdir(&path))
+    }
+
+    fn fs_rename(&mut self, from: String, to: String) -> String {
+        json_or_error(self.engine().fs_rename(&from, &to))
+    }
+
+    fn fs_delete(&mut self, path: String) -> String {
+        json_or_error(self.engine().fs_delete(&path))
     }
 
     fn deploy(&mut self, account: u64, bytecode: String, constructor_args: String) -> String {
