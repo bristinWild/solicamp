@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Copies the solizone-evm crate into rust-lib/vendor/solizone-evm without the
-# Logos Zone SDK dependencies, so the Nix build only needs crates.io.
+# Copies the solizone-evm crate into rust-lib/vendor/solizone-evm (without its
+# binaries). The Logos Zone SDK dependencies stay: the module publishes with them.
 #
 #   scripts/sync-solizone-evm.sh ~/logos/solizone/solizone-evm
 #
@@ -18,12 +18,10 @@ cp -R "$SRC/contracts" "$DST/contracts"
 rm -rf "$DST/src/bin"
 cp "$SRC/LICENSE"* "$DST/" 2>/dev/null || true
 
-# Cargo.toml: drop the Logos SDK dependencies, the features and the bin tables.
+# Cargo.toml: drop only the bin tables (their sources are not vendored).
 python3 - "$SRC/Cargo.toml" "$DST/Cargo.toml" <<'PY'
 import re, sys
 text = open(sys.argv[1]).read()
-text = re.sub(r'^lb-[^\n]*\n', '', text, flags=re.M)
-text = re.sub(r'\[features\].*?(?=\[\[bin\]\]|\[dependencies\])', '', text, flags=re.S)
 text = re.sub(r'\[\[bin\]\]\n(?:[^\n\[][^\n]*\n)*\n?', '', text)
 open(sys.argv[2], 'w').write(text)
 PY

@@ -17,12 +17,44 @@
     # Logos Messaging: carries shared-room traffic between people. The input
     # name must equal the name in metadata.json "dependencies".
     delivery_module.url = "github:logos-co/logos-delivery-module/v0.3.0";
+
+    # Prebuilt ZK libraries the Logos Zone SDK's crates link ("Publish to
+    # Bedrock"). Their build scripts would otherwise download them, which the
+    # Nix sandbox forbids. Same pins as the Logos node's own flake; keep them in
+    # sync with the lbc-* tag and the rust-rapidsnark rev in its Cargo.toml.
+    logos-blockchain-circuits.url = "github:logos-blockchain/logos-blockchain-circuits/v0.5.7";
+    rust-rapidsnark.url = "github:logos-blockchain/logos-blockchain-rust-rapidsnark/e91187f8ccb5bbfc7bb00dac88169112428da78f";
   };
 
-  outputs = inputs@{ logos-module-builder, ... }:
-    logos-module-builder.lib.mkLogosModule {
-      src = ./.;
-      configFile = ./metadata.json;
-      flakeInputs = inputs;
+  outputs = inputs@{ logos-module-builder, logos-blockchain-circuits, rust-rapidsnark, ... }:
+    let
+      # The ZK libraries differ per system, and the builder takes one `rustEnv`
+      # for all of them, so build the module once per system with that system's
+      # libraries and keep each system's own outputs.
+      systems = [ "aarch64-darwin" "x86_64-darwin" "aarch64-linux" "x86_64-linux" ];
+
+      moduleFor = system: logos-module-builder.lib.mkLogosModule {
+        src = ./.;
+        configFile = ./metadata.json;
+        flakeInputs = inputs;
+        rustEnv = {
+          RAPIDSNARK_LIB_DIR = "${rust-rapidsnark.packages.${system}.rapidsnark}";
+          LBC_ROOT_DIR = "${logos-blockchain-circuits.packages.${system}.default}";
+        };
+      };
+
+      built = builtins.listToAttrs (map (system: { name = system; value = moduleFor system; }) systems);
+
+      perSystem = attr: builtins.listToAttrs (map
+        (system: { name = system; value = built.${system}.${attr}.${system}; })
+        systems);
+
+      first = built.${builtins.head systems};
+    in
+    {
+      packages = perSystem "packages";
+      devShells = perSystem "devShells";
+      configFor = perSystem "configFor";
+      inherit (first) config metadataJson;
     };
 }

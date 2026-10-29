@@ -21,6 +21,8 @@ Item {
     property string invite: ""
     property var net: ({ online: false })
     property string lastNote: ""
+    property var pub: ({ state: "off" })
+    property bool importOpen: false
     property var pendingTx: []
 
     readonly property string sample:
@@ -77,6 +79,9 @@ Item {
         contractBox.model = []
         invite = ""
         pendingTx = []
+        pub = ({ state: "off" })
+        importOpen = false
+        pubPoll()
     }
 
     // Share the open room: show its invite and go online so people can join.
@@ -123,6 +128,59 @@ Item {
                 log("ℹ " + n.note)
             }
         })
+    }
+
+    // -- Publish to Bedrock ----------------------------------------------
+    // The local chain is a sandbox. Nothing reaches the Logos network, and no
+    // fee is paid, until the user presses "Publish to Bedrock".
+
+    function pubPoll() {
+        call("publish_status", [], function (p) { if (!p.error) pub = p })
+    }
+
+    function pubStart() {
+        call("publish_start", [], function (p) {
+            if (p.error) { log("✗ " + p.error); return }
+            pub = p
+            log("✓ publishing is on for this room: " + p.message)
+        })
+    }
+
+    function pubStop() {
+        call("publish_stop", [], function (p) {
+            if (p.error) { log("✗ " + p.error); return }
+            pub = p
+            log("✓ publishing is off; the local chain is untouched")
+        })
+    }
+
+    function pubImport() {
+        call("publish_import", [chanInput.text, keyInput.text], function (r) {
+            if (r.error) { log("✗ " + r.error); return }
+            chanInput.text = ""
+            keyInput.text = ""
+            importOpen = false
+            log("✓ this room now publishes to channel " + r.channelId)
+            pubPoll()
+        })
+    }
+
+    function pubLabel() {
+        var labels = {
+            off: "Publishing: off (local sandbox)",
+            guest: "Publishing: only the host publishes this room",
+            needs_node: "Publishing: waiting for the Logos node",
+            needs_funding: "Publishing: needs funding",
+            syncing: "Publishing: syncing",
+            published: "Publishing: published",
+            error: "Publishing: stopped"
+        }
+        var text = labels[pub.state] || "Publishing: " + pub.state
+        if (pub.state !== "off" && pub.state !== "guest" && pub.message) text += " · " + pub.message
+        if (pub.state === "needs_funding" && pub.walletAddress) text += " Address: " + pub.walletAddress
+        if ((pub.state === "syncing" || pub.state === "published") && pub.head !== undefined && pub.head !== null)
+            text += "  (block " + (pub.nextHeight > 0 ? pub.nextHeight - 1 : "-") + " of " + pub.head + ")"
+        return text
     }
 
     function netText() {
@@ -275,6 +333,13 @@ Item {
     }
 
     Timer {
+        interval: 5000
+        repeat: true
+        running: root.running
+        onTriggered: root.pubPoll()
+    }
+
+    Timer {
         interval: 1000
         repeat: true
         running: root.pendingTx.length > 0
@@ -326,6 +391,55 @@ Item {
         }
 
         Label { Layout.fillWidth: true; elide: Text.ElideRight; text: "Network: " + netText() }
+
+        RowLayout {
+            spacing: 8
+            Button {
+                text: "Publish to Bedrock"
+                visible: pub.state === "off"
+                enabled: running
+                onClicked: pubStart()
+            }
+            Button {
+                text: "Stop publishing"
+                visible: pub.state !== "off" && pub.state !== "guest"
+                onClicked: pubStop()
+            }
+            Button {
+                text: "Use existing channel…"
+                visible: pub.state === "off"
+                enabled: running
+                onClicked: importOpen = !importOpen
+            }
+            Label {
+                Layout.fillWidth: true
+                elide: Text.ElideRight
+                wrapMode: Text.NoWrap
+                text: pubLabel()
+            }
+        }
+
+        Label {
+            visible: pub.state === "off"
+            Layout.fillWidth: true
+            wrapMode: Text.WordWrap
+            text: "Publish to Bedrock sends this room's blocks to the Logos network and spends fees from your Basecamp wallet. Nothing is published until you press it."
+        }
+
+        Label {
+            visible: pub.channelId !== undefined && pub.channelId !== null && pub.state !== "guest"
+            Layout.fillWidth: true
+            elide: Text.ElideMiddle
+            text: "Channel: " + pub.channelId
+        }
+
+        RowLayout {
+            spacing: 8
+            visible: importOpen && pub.state === "off"
+            TextField { id: chanInput; placeholderText: "channel id (64 hex) or file path"; Layout.fillWidth: true; selectByMouse: true }
+            TextField { id: keyInput; placeholderText: "sequencer key (64 hex) or file path"; Layout.fillWidth: true; selectByMouse: true; echoMode: TextInput.Password }
+            Button { text: "Use"; onClicked: pubImport() }
+        }
 
         ScrollView {
             Layout.fillWidth: true

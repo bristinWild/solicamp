@@ -11,6 +11,7 @@
 mod collab;
 mod engine;
 mod net;
+mod publish;
 mod rooms;
 mod solc;
 
@@ -59,6 +60,25 @@ pub trait SolizoneModule: Send + 'static {
     /// `{"online", "phase", "connection", "topic", "error", "note", "sent",
     /// "received", "applied"}`; `online` is false before `net_start`.
     fn net_status(&mut self) -> String;
+
+    /// Publishing state of the open room, as JSON: `state` is one of `off`,
+    /// `guest`, `needs_node`, `needs_funding`, `syncing`, `published`,
+    /// `error`, plus `message`, `channelId`, `walletAddress`, `balance`,
+    /// `head`, `nextHeight`. Call it regularly: it also starts the publisher
+    /// once the wallet is funded.
+    fn publish_status(&mut self) -> String;
+
+    /// Turns "Publish to Bedrock" on for the open room (nothing is published
+    /// or paid for before this) and returns the status.
+    fn publish_start(&mut self) -> String;
+
+    /// Turns publishing off for the open room and returns the status.
+    fn publish_stop(&mut self) -> String;
+
+    /// Uses an existing channel id and sequencer key (64 hex characters
+    /// each, or the path of a file holding them) for the open room. Publishing
+    /// must be off.
+    fn publish_import(&mut self, channel_id: String, sequencer_key: String) -> String;
 
     /// A transaction's receipt, or `{"pending": true}` until a block has it.
     fn receipt(&mut self, tx_hash: String) -> String;
@@ -129,6 +149,15 @@ impl Solizone {
             .lock()
             .unwrap_or_else(|poisoned| poisoned.into_inner())
     }
+}
+
+/// The Zone SDK's connection to Basecamp's blockchain_module. The SDK copy the
+/// adapter is built on announces a declared module name as the origin of its
+/// calls; declare ours before it builds its first client.
+fn blockchain_adapter() -> logos_blockchain_zone_sdk_module_backend::NodeModuleClient {
+    logos_rust_sdk_compat::set_module_origin("solizone_module");
+
+    logos_blockchain_zone_sdk_module_backend::NodeModuleClient::new()
 }
 
 fn json_or_error(result: Result<serde_json::Value, String>) -> String {
@@ -226,6 +255,31 @@ impl SolizoneModule for Solizone {
             }
             None => serde_json::json!({ "online": false }).to_string(),
         }
+    }
+
+    fn publish_status(&mut self) -> String {
+        json_or_error(
+            self.engine()
+                .publish_status(&publish::BasecampWallet, blockchain_adapter),
+        )
+    }
+
+    fn publish_start(&mut self) -> String {
+        json_or_error(
+            self.engine()
+                .publish_set(true, &publish::BasecampWallet, blockchain_adapter),
+        )
+    }
+
+    fn publish_stop(&mut self) -> String {
+        json_or_error(
+            self.engine()
+                .publish_set(false, &publish::BasecampWallet, blockchain_adapter),
+        )
+    }
+
+    fn publish_import(&mut self, channel_id: String, sequencer_key: String) -> String {
+        json_or_error(self.engine().publish_import(&channel_id, &sequencer_key))
     }
 
     fn receipt(&mut self, tx_hash: String) -> String {

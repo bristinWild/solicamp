@@ -25,6 +25,7 @@ use solizone_evm::{
 
 use crate::{
     collab::{self, Invite, Session},
+    publish::{self, PublishDir, Wallet},
     rooms::{CollabInfo, Role, Room, Rooms, MAIN_ID},
     solc,
 };
@@ -301,6 +302,131 @@ impl Engine {
         }
 
         info
+    }
+
+    // -- publishing ---------------------------------------------------------
+
+    fn publish_dir(&self) -> Result<PublishDir, String> {
+        let room = self.room.as_ref().ok_or("no room is open")?;
+
+        Ok(PublishDir::new(&self.rooms()?.data_dir(room)))
+    }
+
+    /// Brings publishing in line with the room's setting and returns its
+    /// status. Call it regularly (the UI polls): it starts the publisher
+    /// once the wallet is funded, restarts it after a restart of the app,
+    /// and stops it when the setting is off or the room is not ours to
+    /// publish. `adapter` builds the Logos node connection and is only
+    /// called when a publisher is actually started.
+    pub fn publish_status<N>(
+        &self,
+        wallet: &dyn Wallet,
+        adapter: impl FnOnce() -> N,
+    ) -> Result<Value, String>
+    where
+        N: solizone_evm::publication::logos::LogosNode + Clone + Send + Sync + 'static,
+    {
+        let node = self.node()?;
+        let dir = self.publish_dir()?;
+
+        let enabled = dir.enabled();
+        let is_host = self.session.as_ref().is_none_or(Session::is_host);
+        let should_run = enabled && is_host;
+
+        // The wallet has several keys; pay from the one that holds funds.
+        let publish::Funding {
+            address: wallet_address,
+            balance,
+        } = publish::choose_funding(wallet, dir.funding_address().as_deref());
+
+        let mut running = node.publication_state().is_some();
+
+        if running && !should_run {
+            node.stop_publishing();
+            running = false;
+        }
+
+        if should_run && !running {
+            if let (Ok(Some(address)), Some(Ok(funds))) = (&wallet_address, &balance) {
+                if *funds > 0 {
+                    let keys = dir.keys()?;
+
+                    dir.set_funding_address(address)?;
+
+                    node.start_publishing(
+                        solizone_evm::publication::logos::PublisherSettings {
+                            channel_id: keys.channel_id,
+                            sequencer_key: keys.sequencer_key,
+                            funding_address: publish::parse_hex_32(address)?,
+                            max_tx_fee: publish::MAX_TX_FEE,
+                            feeder: solizone_evm::publication::FeederConfig::default(),
+                        },
+                        adapter(),
+                    )?;
+
+                    running = true;
+                }
+            }
+        }
+
+        let progress = node
+            .publication_state()
+            .or_else(|| node.saved_publication_state().ok());
+
+        // Show the channel only once it exists; looking never creates keys.
+        let keys = dir.keys_if_present();
+
+        Ok(publish::status_json(
+            &publish::Inputs {
+                enabled,
+                is_host,
+                running,
+                wallet_address,
+                balance,
+                head: node.head_height(),
+                progress: progress.as_ref(),
+            },
+            keys.as_ref(),
+        ))
+    }
+
+    /// Turns publishing on or off for the open room (persisted), then
+    /// applies it.
+    pub fn publish_set<N>(
+        &self,
+        enabled: bool,
+        wallet: &dyn Wallet,
+        adapter: impl FnOnce() -> N,
+    ) -> Result<Value, String>
+    where
+        N: solizone_evm::publication::logos::LogosNode + Clone + Send + Sync + 'static,
+    {
+        let dir = self.publish_dir()?;
+
+        if enabled
+            && self
+                .session
+                .as_ref()
+                .is_some_and(|session| !session.is_host())
+        {
+            return Err("only the host of a shared room can publish it".to_string());
+        }
+
+        if enabled {
+            // Creates the room's channel and key on first use.
+            dir.keys()?;
+        }
+
+        dir.set_enabled(enabled)?;
+
+        self.publish_status(wallet, adapter)
+    }
+
+    /// Uses an existing channel id and sequencer key for the open room.
+    pub fn publish_import(&self, channel: &str, key: &str) -> Result<Value, String> {
+        let keys = self.publish_dir()?.import(channel, key)?;
+
+        Ok(json!({ "channelId": hex::encode(keys.channel_id) }))
     }
 
     pub fn stop(&mut self) -> Value {

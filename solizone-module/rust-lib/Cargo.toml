@@ -22,9 +22,23 @@ hex = "0.4.3"
 # Staged by the builder from the same logos-rust-sdk revision its code
 # generator comes from, so there is no generator/runtime skew to manage.
 logos-rust-sdk = { path = "../logos-rust-sdk-src" }
-# The Solizone node, vendored by scripts/sync-solizone-evm.sh without the Logos
-# Zone SDK (publishing is added in a later step).
-solizone-evm = { path = "vendor/solizone-evm", default-features = false }
+# The Solizone node, vendored by scripts/sync-solizone-evm.sh. The `logos`
+# feature is the publisher (Logos Zone SDK), used by "Publish to Bedrock".
+solizone-evm = { path = "vendor/solizone-evm", default-features = false, features = [
+    "logos",
+] }
+# Zone SDK adapter and typed client for Basecamp's blockchain_module, so
+# publishing and wallet reads go through the in-process module, not HTTP.
+logos-blockchain-zone-sdk-module-backend = { git = "https://github.com/logos-blockchain/logos-blockchain-module", rev = "0cf919364e60f91a6b4d1c86b00c68f20fe39b59" }
+logos-blockchain-client = { git = "https://github.com/logos-blockchain/logos-blockchain-module", rev = "0cf919364e60f91a6b4d1c86b00c68f20fe39b59" }
+# Link the ZK prover statically, so the plugin does not need a loose
+# librapidsnark.dylib at runtime. Same rev as the Logos node's Cargo.toml.
+rust-rapidsnark = { git = "https://github.com/logos-blockchain/logos-blockchain-rust-rapidsnark.git", rev = "e91187f8ccb5bbfc7bb00dac88169112428da78f", default-features = false, features = [
+    "static-rapidsnark",
+] }
+# The SDK copy those two crates use (0.2.0), under another name so its origin
+# can be declared separately. See vendor/logos-rust-sdk-compat/PATCHED.md.
+logos-rust-sdk-compat = { package = "logos-rust-sdk", path = "vendor/logos-rust-sdk-compat" }
 alloy-consensus = { version = "2.5.0", features = ["k256", "serde"] }
 alloy-eips = "2.5.0"
 alloy-primitives = "1.7.3"
@@ -35,3 +49,8 @@ sha2 = "0.10"
 chacha20poly1305 = "0.10"
 rand = "0.8"
 alloy-dyn-abi = "1"
+
+# Makes the blockchain_module crates use the vendored 0.2.0 SDK, which announces
+# a declared module name instead of "core".
+[patch."https://github.com/logos-co/logos-rust-sdk"]
+logos-rust-sdk = { path = "vendor/logos-rust-sdk-compat" }

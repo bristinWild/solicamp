@@ -4719,6 +4719,25 @@
         "type": "github"
       }
     },
+    "logos-blockchain-circuits_2": {
+      "inputs": {
+        "nixpkgs": "nixpkgs_5355"
+      },
+      "locked": {
+        "lastModified": 1788878036,
+        "narHash": "sha256-wL5m64kEcQE+CFYXLrUxbcOlqicBfSx+f/3i8fkBy1I=",
+        "owner": "logos-blockchain",
+        "repo": "logos-blockchain-circuits",
+        "rev": "ebf7ddf5b5b625ef4ea7c803171c670beebd05ef",
+        "type": "github"
+      },
+      "original": {
+        "owner": "logos-blockchain",
+        "ref": "v0.5.7",
+        "repo": "logos-blockchain-circuits",
+        "type": "github"
+      }
+    },
     "logos-capability-module": {
       "inputs": {
         "logos-module-builder": "logos-module-builder_2"
@@ -214587,7 +214606,7 @@
     },
     "logos-nix_5351": {
       "inputs": {
-        "nixpkgs": "nixpkgs_5355",
+        "nixpkgs": "nixpkgs_5356",
         "nixpkgs-windows": "nixpkgs-windows_1379"
       },
       "locked": {
@@ -214606,7 +214625,7 @@
     },
     "logos-nix_5352": {
       "inputs": {
-        "nixpkgs": "nixpkgs_5356",
+        "nixpkgs": "nixpkgs_5357",
         "nixpkgs-windows": "nixpkgs-windows_1380"
       },
       "locked": {
@@ -214625,7 +214644,7 @@
     },
     "logos-nix_5353": {
       "inputs": {
-        "nixpkgs": "nixpkgs_5357",
+        "nixpkgs": "nixpkgs_5358",
         "nixpkgs-windows": "nixpkgs-windows_1381"
       },
       "locked": {
@@ -214644,7 +214663,7 @@
     },
     "logos-nix_5354": {
       "inputs": {
-        "nixpkgs": "nixpkgs_5358",
+        "nixpkgs": "nixpkgs_5359",
         "nixpkgs-windows": "nixpkgs-windows_1382"
       },
       "locked": {
@@ -214663,7 +214682,7 @@
     },
     "logos-nix_5355": {
       "inputs": {
-        "nixpkgs": "nixpkgs_5359",
+        "nixpkgs": "nixpkgs_5360",
         "nixpkgs-windows": "nixpkgs-windows_1383"
       },
       "locked": {
@@ -214682,7 +214701,7 @@
     },
     "logos-nix_5356": {
       "inputs": {
-        "nixpkgs": "nixpkgs_5360",
+        "nixpkgs": "nixpkgs_5361",
         "nixpkgs-windows": "nixpkgs-windows_1384"
       },
       "locked": {
@@ -214701,7 +214720,7 @@
     },
     "logos-nix_5357": {
       "inputs": {
-        "nixpkgs": "nixpkgs_5361",
+        "nixpkgs": "nixpkgs_5362",
         "nixpkgs-windows": "nixpkgs-windows_1385"
       },
       "locked": {
@@ -214720,7 +214739,7 @@
     },
     "logos-nix_5358": {
       "inputs": {
-        "nixpkgs": "nixpkgs_5362",
+        "nixpkgs": "nixpkgs_5363",
         "nixpkgs-windows": "nixpkgs-windows_1386"
       },
       "locked": {
@@ -214739,7 +214758,7 @@
     },
     "logos-nix_5359": {
       "inputs": {
-        "nixpkgs": "nixpkgs_5363",
+        "nixpkgs": "nixpkgs_5364",
         "nixpkgs-windows": "nixpkgs-windows_1387"
       },
       "locked": {
@@ -214777,7 +214796,7 @@
     },
     "logos-nix_5360": {
       "inputs": {
-        "nixpkgs": "nixpkgs_5364",
+        "nixpkgs": "nixpkgs_5365",
         "nixpkgs-windows": "nixpkgs-windows_1388"
       },
       "locked": {
@@ -214796,7 +214815,7 @@
     },
     "logos-nix_5361": {
       "inputs": {
-        "nixpkgs": "nixpkgs_5365",
+        "nixpkgs": "nixpkgs_5366",
         "nixpkgs-windows": "nixpkgs-windows_1389"
       },
       "locked": {
@@ -214815,7 +214834,7 @@
     },
     "logos-nix_5362": {
       "inputs": {
-        "nixpkgs": "nixpkgs_5366",
+        "nixpkgs": "nixpkgs_5367",
         "nixpkgs-windows": "nixpkgs-windows_1390"
       },
       "locked": {
@@ -214834,7 +214853,7 @@
     },
     "logos-nix_5363": {
       "inputs": {
-        "nixpkgs": "nixpkgs_5367",
+        "nixpkgs": "nixpkgs_5368",
         "nixpkgs-windows": "nixpkgs-windows_1391"
       },
       "locked": {
@@ -214853,7 +214872,7 @@
     },
     "logos-nix_5364": {
       "inputs": {
-        "nixpkgs": "nixpkgs_5368",
+        "nixpkgs": "nixpkgs_5369",
         "nixpkgs-windows": "nixpkgs-windows_1392"
       },
       "locked": {
@@ -214872,7 +214891,7 @@
     },
     "logos-nix_5365": {
       "inputs": {
-        "nixpkgs": "nixpkgs_5369",
+        "nixpkgs": "nixpkgs_5370",
         "nixpkgs-windows": "nixpkgs-windows_1393"
       },
       "locked": {
@@ -214891,7 +214910,7 @@
     },
     "logos-nix_5366": {
       "inputs": {
-        "nixpkgs": "nixpkgs_5370",
+        "nixpkgs": "nixpkgs_5371",
         "nixpkgs-windows": "nixpkgs-windows_1394"
       },
       "locked": {
@@ -214910,7 +214929,7 @@
     },
     "logos-nix_5367": {
       "inputs": {
-        "nixpkgs": "nixpkgs_5371",
+        "nixpkgs": "nixpkgs_5372",
         "nixpkgs-windows": "nixpkgs-windows_1395"
       },
       "locked": {
@@ -214929,7 +214948,7 @@
     },
     "logos-nix_5368": {
       "inputs": {
-        "nixpkgs": "nixpkgs_5372",
+        "nixpkgs": "nixpkgs_5373",
         "nixpkgs-windows": "nixpkgs-windows_1396"
       },
       "locked": {
@@ -214948,7 +214967,7 @@
     },
     "logos-nix_5369": {
       "inputs": {
-        "nixpkgs": "nixpkgs_5373",
+        "nixpkgs": "nixpkgs_5374",
         "nixpkgs-windows": "nixpkgs-windows_1397"
       },
       "locked": {
@@ -214986,7 +215005,7 @@
     },
     "logos-nix_5370": {
       "inputs": {
-        "nixpkgs": "nixpkgs_5374",
+        "nixpkgs": "nixpkgs_5375",
         "nixpkgs-windows": "nixpkgs-windows_1398"
       },
       "locked": {
@@ -215005,7 +215024,7 @@
     },
     "logos-nix_5371": {
       "inputs": {
-        "nixpkgs": "nixpkgs_5375",
+        "nixpkgs": "nixpkgs_5376",
         "nixpkgs-windows": "nixpkgs-windows_1399"
       },
       "locked": {
@@ -215024,7 +215043,7 @@
     },
     "logos-nix_5372": {
       "inputs": {
-        "nixpkgs": "nixpkgs_5376",
+        "nixpkgs": "nixpkgs_5377",
         "nixpkgs-windows": "nixpkgs-windows_1400"
       },
       "locked": {
@@ -215043,7 +215062,7 @@
     },
     "logos-nix_5373": {
       "inputs": {
-        "nixpkgs": "nixpkgs_5377",
+        "nixpkgs": "nixpkgs_5378",
         "nixpkgs-windows": "nixpkgs-windows_1401"
       },
       "locked": {
@@ -215062,7 +215081,7 @@
     },
     "logos-nix_5374": {
       "inputs": {
-        "nixpkgs": "nixpkgs_5378",
+        "nixpkgs": "nixpkgs_5379",
         "nixpkgs-windows": "nixpkgs-windows_1402"
       },
       "locked": {
@@ -215081,7 +215100,7 @@
     },
     "logos-nix_5375": {
       "inputs": {
-        "nixpkgs": "nixpkgs_5379",
+        "nixpkgs": "nixpkgs_5380",
         "nixpkgs-windows": "nixpkgs-windows_1403"
       },
       "locked": {
@@ -215100,7 +215119,7 @@
     },
     "logos-nix_5376": {
       "inputs": {
-        "nixpkgs": "nixpkgs_5380",
+        "nixpkgs": "nixpkgs_5381",
         "nixpkgs-windows": "nixpkgs-windows_1404"
       },
       "locked": {
@@ -215119,7 +215138,7 @@
     },
     "logos-nix_5377": {
       "inputs": {
-        "nixpkgs": "nixpkgs_5381",
+        "nixpkgs": "nixpkgs_5382",
         "nixpkgs-windows": "nixpkgs-windows_1405"
       },
       "locked": {
@@ -215138,7 +215157,7 @@
     },
     "logos-nix_5378": {
       "inputs": {
-        "nixpkgs": "nixpkgs_5382",
+        "nixpkgs": "nixpkgs_5383",
         "nixpkgs-windows": "nixpkgs-windows_1406"
       },
       "locked": {
@@ -215157,7 +215176,7 @@
     },
     "logos-nix_5379": {
       "inputs": {
-        "nixpkgs": "nixpkgs_5383",
+        "nixpkgs": "nixpkgs_5384",
         "nixpkgs-windows": "nixpkgs-windows_1407"
       },
       "locked": {
@@ -215195,7 +215214,7 @@
     },
     "logos-nix_5380": {
       "inputs": {
-        "nixpkgs": "nixpkgs_5384",
+        "nixpkgs": "nixpkgs_5385",
         "nixpkgs-windows": "nixpkgs-windows_1408"
       },
       "locked": {
@@ -215214,7 +215233,7 @@
     },
     "logos-nix_5381": {
       "inputs": {
-        "nixpkgs": "nixpkgs_5385",
+        "nixpkgs": "nixpkgs_5386",
         "nixpkgs-windows": "nixpkgs-windows_1409"
       },
       "locked": {
@@ -215233,7 +215252,7 @@
     },
     "logos-nix_5382": {
       "inputs": {
-        "nixpkgs": "nixpkgs_5386",
+        "nixpkgs": "nixpkgs_5387",
         "nixpkgs-windows": "nixpkgs-windows_1410"
       },
       "locked": {
@@ -215252,7 +215271,7 @@
     },
     "logos-nix_5383": {
       "inputs": {
-        "nixpkgs": "nixpkgs_5387",
+        "nixpkgs": "nixpkgs_5388",
         "nixpkgs-windows": "nixpkgs-windows_1411"
       },
       "locked": {
@@ -215271,7 +215290,7 @@
     },
     "logos-nix_5384": {
       "inputs": {
-        "nixpkgs": "nixpkgs_5388",
+        "nixpkgs": "nixpkgs_5389",
         "nixpkgs-windows": "nixpkgs-windows_1412"
       },
       "locked": {
@@ -215290,7 +215309,7 @@
     },
     "logos-nix_5385": {
       "inputs": {
-        "nixpkgs": "nixpkgs_5389"
+        "nixpkgs": "nixpkgs_5390"
       },
       "locked": {
         "lastModified": 1774455309,
@@ -215308,7 +215327,7 @@
     },
     "logos-nix_5386": {
       "inputs": {
-        "nixpkgs": "nixpkgs_5390"
+        "nixpkgs": "nixpkgs_5391"
       },
       "locked": {
         "lastModified": 1773955630,
@@ -215326,7 +215345,7 @@
     },
     "logos-nix_5387": {
       "inputs": {
-        "nixpkgs": "nixpkgs_5391",
+        "nixpkgs": "nixpkgs_5392",
         "nixpkgs-windows": "nixpkgs-windows_1413"
       },
       "locked": {
@@ -215345,7 +215364,7 @@
     },
     "logos-nix_5388": {
       "inputs": {
-        "nixpkgs": "nixpkgs_5392",
+        "nixpkgs": "nixpkgs_5393",
         "nixpkgs-windows": "nixpkgs-windows_1414"
       },
       "locked": {
@@ -215364,7 +215383,7 @@
     },
     "logos-nix_5389": {
       "inputs": {
-        "nixpkgs": "nixpkgs_5393",
+        "nixpkgs": "nixpkgs_5394",
         "nixpkgs-windows": "nixpkgs-windows_1415"
       },
       "locked": {
@@ -215402,7 +215421,7 @@
     },
     "logos-nix_5390": {
       "inputs": {
-        "nixpkgs": "nixpkgs_5394",
+        "nixpkgs": "nixpkgs_5395",
         "nixpkgs-windows": "nixpkgs-windows_1416"
       },
       "locked": {
@@ -215421,7 +215440,7 @@
     },
     "logos-nix_5391": {
       "inputs": {
-        "nixpkgs": "nixpkgs_5395",
+        "nixpkgs": "nixpkgs_5396",
         "nixpkgs-windows": "nixpkgs-windows_1417"
       },
       "locked": {
@@ -215440,7 +215459,7 @@
     },
     "logos-nix_5392": {
       "inputs": {
-        "nixpkgs": "nixpkgs_5396",
+        "nixpkgs": "nixpkgs_5397",
         "nixpkgs-windows": "nixpkgs-windows_1418"
       },
       "locked": {
@@ -215459,7 +215478,7 @@
     },
     "logos-nix_5393": {
       "inputs": {
-        "nixpkgs": "nixpkgs_5397",
+        "nixpkgs": "nixpkgs_5398",
         "nixpkgs-windows": "nixpkgs-windows_1419"
       },
       "locked": {
@@ -215478,7 +215497,7 @@
     },
     "logos-nix_5394": {
       "inputs": {
-        "nixpkgs": "nixpkgs_5398",
+        "nixpkgs": "nixpkgs_5399",
         "nixpkgs-windows": "nixpkgs-windows_1420"
       },
       "locked": {
@@ -215497,7 +215516,7 @@
     },
     "logos-nix_5395": {
       "inputs": {
-        "nixpkgs": "nixpkgs_5399",
+        "nixpkgs": "nixpkgs_5400",
         "nixpkgs-windows": "nixpkgs-windows_1421"
       },
       "locked": {
@@ -215516,7 +215535,7 @@
     },
     "logos-nix_5396": {
       "inputs": {
-        "nixpkgs": "nixpkgs_5400",
+        "nixpkgs": "nixpkgs_5401",
         "nixpkgs-windows": "nixpkgs-windows_1422"
       },
       "locked": {
@@ -215535,7 +215554,7 @@
     },
     "logos-nix_5397": {
       "inputs": {
-        "nixpkgs": "nixpkgs_5401",
+        "nixpkgs": "nixpkgs_5402",
         "nixpkgs-windows": "nixpkgs-windows_1423"
       },
       "locked": {
@@ -215554,7 +215573,7 @@
     },
     "logos-nix_5398": {
       "inputs": {
-        "nixpkgs": "nixpkgs_5402",
+        "nixpkgs": "nixpkgs_5403",
         "nixpkgs-windows": "nixpkgs-windows_1424"
       },
       "locked": {
@@ -215573,7 +215592,7 @@
     },
     "logos-nix_5399": {
       "inputs": {
-        "nixpkgs": "nixpkgs_5403",
+        "nixpkgs": "nixpkgs_5404",
         "nixpkgs-windows": "nixpkgs-windows_1425"
       },
       "locked": {
@@ -215630,7 +215649,7 @@
     },
     "logos-nix_5400": {
       "inputs": {
-        "nixpkgs": "nixpkgs_5404",
+        "nixpkgs": "nixpkgs_5405",
         "nixpkgs-windows": "nixpkgs-windows_1426"
       },
       "locked": {
@@ -215649,7 +215668,7 @@
     },
     "logos-nix_5401": {
       "inputs": {
-        "nixpkgs": "nixpkgs_5405",
+        "nixpkgs": "nixpkgs_5406",
         "nixpkgs-windows": "nixpkgs-windows_1427"
       },
       "locked": {
@@ -215668,7 +215687,7 @@
     },
     "logos-nix_5402": {
       "inputs": {
-        "nixpkgs": "nixpkgs_5406",
+        "nixpkgs": "nixpkgs_5407",
         "nixpkgs-windows": "nixpkgs-windows_1428"
       },
       "locked": {
@@ -215687,7 +215706,7 @@
     },
     "logos-nix_5403": {
       "inputs": {
-        "nixpkgs": "nixpkgs_5407",
+        "nixpkgs": "nixpkgs_5408",
         "nixpkgs-windows": "nixpkgs-windows_1429"
       },
       "locked": {
@@ -215706,7 +215725,7 @@
     },
     "logos-nix_5404": {
       "inputs": {
-        "nixpkgs": "nixpkgs_5408",
+        "nixpkgs": "nixpkgs_5409",
         "nixpkgs-windows": "nixpkgs-windows_1430"
       },
       "locked": {
@@ -215725,7 +215744,7 @@
     },
     "logos-nix_5405": {
       "inputs": {
-        "nixpkgs": "nixpkgs_5409",
+        "nixpkgs": "nixpkgs_5410",
         "nixpkgs-windows": "nixpkgs-windows_1431"
       },
       "locked": {
@@ -215744,7 +215763,7 @@
     },
     "logos-nix_5406": {
       "inputs": {
-        "nixpkgs": "nixpkgs_5410",
+        "nixpkgs": "nixpkgs_5411",
         "nixpkgs-windows": "nixpkgs-windows_1432"
       },
       "locked": {
@@ -215763,7 +215782,7 @@
     },
     "logos-nix_5407": {
       "inputs": {
-        "nixpkgs": "nixpkgs_5411",
+        "nixpkgs": "nixpkgs_5412",
         "nixpkgs-windows": "nixpkgs-windows_1433"
       },
       "locked": {
@@ -215782,7 +215801,7 @@
     },
     "logos-nix_5408": {
       "inputs": {
-        "nixpkgs": "nixpkgs_5412",
+        "nixpkgs": "nixpkgs_5413",
         "nixpkgs-windows": "nixpkgs-windows_1434"
       },
       "locked": {
@@ -215801,7 +215820,7 @@
     },
     "logos-nix_5409": {
       "inputs": {
-        "nixpkgs": "nixpkgs_5413",
+        "nixpkgs": "nixpkgs_5414",
         "nixpkgs-windows": "nixpkgs-windows_1435"
       },
       "locked": {
@@ -215839,7 +215858,7 @@
     },
     "logos-nix_5410": {
       "inputs": {
-        "nixpkgs": "nixpkgs_5414",
+        "nixpkgs": "nixpkgs_5415",
         "nixpkgs-windows": "nixpkgs-windows_1436"
       },
       "locked": {
@@ -215858,7 +215877,7 @@
     },
     "logos-nix_5411": {
       "inputs": {
-        "nixpkgs": "nixpkgs_5415",
+        "nixpkgs": "nixpkgs_5416",
         "nixpkgs-windows": "nixpkgs-windows_1437"
       },
       "locked": {
@@ -215877,7 +215896,7 @@
     },
     "logos-nix_5412": {
       "inputs": {
-        "nixpkgs": "nixpkgs_5416",
+        "nixpkgs": "nixpkgs_5417",
         "nixpkgs-windows": "nixpkgs-windows_1438"
       },
       "locked": {
@@ -215896,7 +215915,7 @@
     },
     "logos-nix_5413": {
       "inputs": {
-        "nixpkgs": "nixpkgs_5417",
+        "nixpkgs": "nixpkgs_5418",
         "nixpkgs-windows": "nixpkgs-windows_1439"
       },
       "locked": {
@@ -215915,7 +215934,7 @@
     },
     "logos-nix_5414": {
       "inputs": {
-        "nixpkgs": "nixpkgs_5418",
+        "nixpkgs": "nixpkgs_5419",
         "nixpkgs-windows": "nixpkgs-windows_1440"
       },
       "locked": {
@@ -215934,7 +215953,7 @@
     },
     "logos-nix_5415": {
       "inputs": {
-        "nixpkgs": "nixpkgs_5419",
+        "nixpkgs": "nixpkgs_5420",
         "nixpkgs-windows": "nixpkgs-windows_1441"
       },
       "locked": {
@@ -215953,7 +215972,7 @@
     },
     "logos-nix_5416": {
       "inputs": {
-        "nixpkgs": "nixpkgs_5420",
+        "nixpkgs": "nixpkgs_5421",
         "nixpkgs-windows": "nixpkgs-windows_1442"
       },
       "locked": {
@@ -215972,7 +215991,7 @@
     },
     "logos-nix_5417": {
       "inputs": {
-        "nixpkgs": "nixpkgs_5421",
+        "nixpkgs": "nixpkgs_5422",
         "nixpkgs-windows": "nixpkgs-windows_1443"
       },
       "locked": {
@@ -215991,7 +216010,7 @@
     },
     "logos-nix_5418": {
       "inputs": {
-        "nixpkgs": "nixpkgs_5422",
+        "nixpkgs": "nixpkgs_5423",
         "nixpkgs-windows": "nixpkgs-windows_1444"
       },
       "locked": {
@@ -216010,7 +216029,7 @@
     },
     "logos-nix_5419": {
       "inputs": {
-        "nixpkgs": "nixpkgs_5423",
+        "nixpkgs": "nixpkgs_5424",
         "nixpkgs-windows": "nixpkgs-windows_1445"
       },
       "locked": {
@@ -216048,7 +216067,7 @@
     },
     "logos-nix_5420": {
       "inputs": {
-        "nixpkgs": "nixpkgs_5424",
+        "nixpkgs": "nixpkgs_5425",
         "nixpkgs-windows": "nixpkgs-windows_1446"
       },
       "locked": {
@@ -216067,7 +216086,7 @@
     },
     "logos-nix_5421": {
       "inputs": {
-        "nixpkgs": "nixpkgs_5425",
+        "nixpkgs": "nixpkgs_5426",
         "nixpkgs-windows": "nixpkgs-windows_1447"
       },
       "locked": {
@@ -216086,7 +216105,7 @@
     },
     "logos-nix_5422": {
       "inputs": {
-        "nixpkgs": "nixpkgs_5426",
+        "nixpkgs": "nixpkgs_5427",
         "nixpkgs-windows": "nixpkgs-windows_1448"
       },
       "locked": {
@@ -216105,7 +216124,7 @@
     },
     "logos-nix_5423": {
       "inputs": {
-        "nixpkgs": "nixpkgs_5427",
+        "nixpkgs": "nixpkgs_5428",
         "nixpkgs-windows": "nixpkgs-windows_1449"
       },
       "locked": {
@@ -216124,7 +216143,7 @@
     },
     "logos-nix_5424": {
       "inputs": {
-        "nixpkgs": "nixpkgs_5428",
+        "nixpkgs": "nixpkgs_5429",
         "nixpkgs-windows": "nixpkgs-windows_1450"
       },
       "locked": {
@@ -216143,7 +216162,7 @@
     },
     "logos-nix_5425": {
       "inputs": {
-        "nixpkgs": "nixpkgs_5429",
+        "nixpkgs": "nixpkgs_5430",
         "nixpkgs-windows": "nixpkgs-windows_1451"
       },
       "locked": {
@@ -216162,7 +216181,7 @@
     },
     "logos-nix_5426": {
       "inputs": {
-        "nixpkgs": "nixpkgs_5430",
+        "nixpkgs": "nixpkgs_5431",
         "nixpkgs-windows": "nixpkgs-windows_1452"
       },
       "locked": {
@@ -216181,7 +216200,7 @@
     },
     "logos-nix_5427": {
       "inputs": {
-        "nixpkgs": "nixpkgs_5431",
+        "nixpkgs": "nixpkgs_5432",
         "nixpkgs-windows": "nixpkgs-windows_1453"
       },
       "locked": {
@@ -216200,7 +216219,7 @@
     },
     "logos-nix_5428": {
       "inputs": {
-        "nixpkgs": "nixpkgs_5432",
+        "nixpkgs": "nixpkgs_5433",
         "nixpkgs-windows": "nixpkgs-windows_1454"
       },
       "locked": {
@@ -216219,7 +216238,7 @@
     },
     "logos-nix_5429": {
       "inputs": {
-        "nixpkgs": "nixpkgs_5433",
+        "nixpkgs": "nixpkgs_5434",
         "nixpkgs-windows": "nixpkgs-windows_1455"
       },
       "locked": {
@@ -216257,7 +216276,7 @@
     },
     "logos-nix_5430": {
       "inputs": {
-        "nixpkgs": "nixpkgs_5434",
+        "nixpkgs": "nixpkgs_5435",
         "nixpkgs-windows": "nixpkgs-windows_1456"
       },
       "locked": {
@@ -216276,7 +216295,7 @@
     },
     "logos-nix_5431": {
       "inputs": {
-        "nixpkgs": "nixpkgs_5435",
+        "nixpkgs": "nixpkgs_5436",
         "nixpkgs-windows": "nixpkgs-windows_1457"
       },
       "locked": {
@@ -216295,7 +216314,7 @@
     },
     "logos-nix_5432": {
       "inputs": {
-        "nixpkgs": "nixpkgs_5436"
+        "nixpkgs": "nixpkgs_5437"
       },
       "locked": {
         "lastModified": 1773955630,
@@ -216313,7 +216332,7 @@
     },
     "logos-nix_5433": {
       "inputs": {
-        "nixpkgs": "nixpkgs_5437"
+        "nixpkgs": "nixpkgs_5438"
       },
       "locked": {
         "lastModified": 1773955630,
@@ -216331,7 +216350,7 @@
     },
     "logos-nix_5434": {
       "inputs": {
-        "nixpkgs": "nixpkgs_5438",
+        "nixpkgs": "nixpkgs_5439",
         "nixpkgs-windows": "nixpkgs-windows_1458"
       },
       "locked": {
@@ -216350,7 +216369,7 @@
     },
     "logos-nix_5435": {
       "inputs": {
-        "nixpkgs": "nixpkgs_5439",
+        "nixpkgs": "nixpkgs_5440",
         "nixpkgs-windows": "nixpkgs-windows_1459"
       },
       "locked": {
@@ -216369,7 +216388,7 @@
     },
     "logos-nix_5436": {
       "inputs": {
-        "nixpkgs": "nixpkgs_5440",
+        "nixpkgs": "nixpkgs_5441",
         "nixpkgs-windows": "nixpkgs-windows_1460"
       },
       "locked": {
@@ -216388,7 +216407,7 @@
     },
     "logos-nix_5437": {
       "inputs": {
-        "nixpkgs": "nixpkgs_5441",
+        "nixpkgs": "nixpkgs_5442",
         "nixpkgs-windows": "nixpkgs-windows_1461"
       },
       "locked": {
@@ -216407,7 +216426,7 @@
     },
     "logos-nix_5438": {
       "inputs": {
-        "nixpkgs": "nixpkgs_5442",
+        "nixpkgs": "nixpkgs_5443",
         "nixpkgs-windows": "nixpkgs-windows_1462"
       },
       "locked": {
@@ -216426,7 +216445,7 @@
     },
     "logos-nix_5439": {
       "inputs": {
-        "nixpkgs": "nixpkgs_5443",
+        "nixpkgs": "nixpkgs_5444",
         "nixpkgs-windows": "nixpkgs-windows_1463"
       },
       "locked": {
@@ -216464,7 +216483,7 @@
     },
     "logos-nix_5440": {
       "inputs": {
-        "nixpkgs": "nixpkgs_5444",
+        "nixpkgs": "nixpkgs_5445",
         "nixpkgs-windows": "nixpkgs-windows_1464"
       },
       "locked": {
@@ -216483,7 +216502,7 @@
     },
     "logos-nix_5441": {
       "inputs": {
-        "nixpkgs": "nixpkgs_5445",
+        "nixpkgs": "nixpkgs_5446",
         "nixpkgs-windows": "nixpkgs-windows_1465"
       },
       "locked": {
@@ -216502,7 +216521,7 @@
     },
     "logos-nix_5442": {
       "inputs": {
-        "nixpkgs": "nixpkgs_5446",
+        "nixpkgs": "nixpkgs_5447",
         "nixpkgs-windows": "nixpkgs-windows_1466"
       },
       "locked": {
@@ -216521,7 +216540,7 @@
     },
     "logos-nix_5443": {
       "inputs": {
-        "nixpkgs": "nixpkgs_5447",
+        "nixpkgs": "nixpkgs_5448",
         "nixpkgs-windows": "nixpkgs-windows_1467"
       },
       "locked": {
@@ -216540,7 +216559,7 @@
     },
     "logos-nix_5444": {
       "inputs": {
-        "nixpkgs": "nixpkgs_5448",
+        "nixpkgs": "nixpkgs_5449",
         "nixpkgs-windows": "nixpkgs-windows_1468"
       },
       "locked": {
@@ -216559,7 +216578,7 @@
     },
     "logos-nix_5445": {
       "inputs": {
-        "nixpkgs": "nixpkgs_5449"
+        "nixpkgs": "nixpkgs_5450"
       },
       "locked": {
         "lastModified": 1773955630,
@@ -216577,7 +216596,7 @@
     },
     "logos-nix_5446": {
       "inputs": {
-        "nixpkgs": "nixpkgs_5450"
+        "nixpkgs": "nixpkgs_5451"
       },
       "locked": {
         "lastModified": 1773955630,
@@ -216595,7 +216614,7 @@
     },
     "logos-nix_5447": {
       "inputs": {
-        "nixpkgs": "nixpkgs_5451",
+        "nixpkgs": "nixpkgs_5452",
         "nixpkgs-windows": "nixpkgs-windows_1469"
       },
       "locked": {
@@ -216614,7 +216633,7 @@
     },
     "logos-nix_5448": {
       "inputs": {
-        "nixpkgs": "nixpkgs_5452",
+        "nixpkgs": "nixpkgs_5453",
         "nixpkgs-windows": "nixpkgs-windows_1470"
       },
       "locked": {
@@ -216633,7 +216652,7 @@
     },
     "logos-nix_5449": {
       "inputs": {
-        "nixpkgs": "nixpkgs_5453",
+        "nixpkgs": "nixpkgs_5454",
         "nixpkgs-windows": "nixpkgs-windows_1471"
       },
       "locked": {
@@ -216671,7 +216690,7 @@
     },
     "logos-nix_5450": {
       "inputs": {
-        "nixpkgs": "nixpkgs_5454",
+        "nixpkgs": "nixpkgs_5455",
         "nixpkgs-windows": "nixpkgs-windows_1472"
       },
       "locked": {
@@ -216690,7 +216709,7 @@
     },
     "logos-nix_5451": {
       "inputs": {
-        "nixpkgs": "nixpkgs_5455",
+        "nixpkgs": "nixpkgs_5456",
         "nixpkgs-windows": "nixpkgs-windows_1473"
       },
       "locked": {
@@ -216709,7 +216728,7 @@
     },
     "logos-nix_5452": {
       "inputs": {
-        "nixpkgs": "nixpkgs_5456",
+        "nixpkgs": "nixpkgs_5457",
         "nixpkgs-windows": "nixpkgs-windows_1474"
       },
       "locked": {
@@ -216728,7 +216747,7 @@
     },
     "logos-nix_5453": {
       "inputs": {
-        "nixpkgs": "nixpkgs_5457",
+        "nixpkgs": "nixpkgs_5458",
         "nixpkgs-windows": "nixpkgs-windows_1475"
       },
       "locked": {
@@ -216747,7 +216766,7 @@
     },
     "logos-nix_5454": {
       "inputs": {
-        "nixpkgs": "nixpkgs_5458"
+        "nixpkgs": "nixpkgs_5459"
       },
       "locked": {
         "lastModified": 1773955630,
@@ -216765,7 +216784,7 @@
     },
     "logos-nix_5455": {
       "inputs": {
-        "nixpkgs": "nixpkgs_5459",
+        "nixpkgs": "nixpkgs_5460",
         "nixpkgs-windows": "nixpkgs-windows_1476"
       },
       "locked": {
@@ -216784,7 +216803,7 @@
     },
     "logos-nix_5456": {
       "inputs": {
-        "nixpkgs": "nixpkgs_5460",
+        "nixpkgs": "nixpkgs_5461",
         "nixpkgs-windows": "nixpkgs-windows_1477"
       },
       "locked": {
@@ -216803,7 +216822,7 @@
     },
     "logos-nix_5457": {
       "inputs": {
-        "nixpkgs": "nixpkgs_5461",
+        "nixpkgs": "nixpkgs_5462",
         "nixpkgs-windows": "nixpkgs-windows_1478"
       },
       "locked": {
@@ -216822,7 +216841,7 @@
     },
     "logos-nix_5458": {
       "inputs": {
-        "nixpkgs": "nixpkgs_5462",
+        "nixpkgs": "nixpkgs_5463",
         "nixpkgs-windows": "nixpkgs-windows_1479"
       },
       "locked": {
@@ -216841,7 +216860,7 @@
     },
     "logos-nix_5459": {
       "inputs": {
-        "nixpkgs": "nixpkgs_5463",
+        "nixpkgs": "nixpkgs_5464",
         "nixpkgs-windows": "nixpkgs-windows_1480"
       },
       "locked": {
@@ -216879,7 +216898,7 @@
     },
     "logos-nix_5460": {
       "inputs": {
-        "nixpkgs": "nixpkgs_5464",
+        "nixpkgs": "nixpkgs_5465",
         "nixpkgs-windows": "nixpkgs-windows_1481"
       },
       "locked": {
@@ -216898,7 +216917,7 @@
     },
     "logos-nix_5461": {
       "inputs": {
-        "nixpkgs": "nixpkgs_5465",
+        "nixpkgs": "nixpkgs_5466",
         "nixpkgs-windows": "nixpkgs-windows_1482"
       },
       "locked": {
@@ -216917,7 +216936,7 @@
     },
     "logos-nix_5462": {
       "inputs": {
-        "nixpkgs": "nixpkgs_5466",
+        "nixpkgs": "nixpkgs_5467",
         "nixpkgs-windows": "nixpkgs-windows_1483"
       },
       "locked": {
@@ -216936,7 +216955,7 @@
     },
     "logos-nix_5463": {
       "inputs": {
-        "nixpkgs": "nixpkgs_5467",
+        "nixpkgs": "nixpkgs_5468",
         "nixpkgs-windows": "nixpkgs-windows_1484"
       },
       "locked": {
@@ -216955,7 +216974,7 @@
     },
     "logos-nix_5464": {
       "inputs": {
-        "nixpkgs": "nixpkgs_5468",
+        "nixpkgs": "nixpkgs_5469",
         "nixpkgs-windows": "nixpkgs-windows_1485"
       },
       "locked": {
@@ -216974,7 +216993,7 @@
     },
     "logos-nix_5465": {
       "inputs": {
-        "nixpkgs": "nixpkgs_5469"
+        "nixpkgs": "nixpkgs_5470"
       },
       "locked": {
         "lastModified": 1773955630,
@@ -216992,7 +217011,7 @@
     },
     "logos-nix_5466": {
       "inputs": {
-        "nixpkgs": "nixpkgs_5470"
+        "nixpkgs": "nixpkgs_5471"
       },
       "locked": {
         "lastModified": 1773955630,
@@ -217010,7 +217029,7 @@
     },
     "logos-nix_5467": {
       "inputs": {
-        "nixpkgs": "nixpkgs_5471",
+        "nixpkgs": "nixpkgs_5472",
         "nixpkgs-windows": "nixpkgs-windows_1486"
       },
       "locked": {
@@ -217029,7 +217048,7 @@
     },
     "logos-nix_5468": {
       "inputs": {
-        "nixpkgs": "nixpkgs_5472",
+        "nixpkgs": "nixpkgs_5473",
         "nixpkgs-windows": "nixpkgs-windows_1487"
       },
       "locked": {
@@ -217048,7 +217067,7 @@
     },
     "logos-nix_5469": {
       "inputs": {
-        "nixpkgs": "nixpkgs_5473",
+        "nixpkgs": "nixpkgs_5474",
         "nixpkgs-windows": "nixpkgs-windows_1488"
       },
       "locked": {
@@ -217086,7 +217105,7 @@
     },
     "logos-nix_5470": {
       "inputs": {
-        "nixpkgs": "nixpkgs_5474",
+        "nixpkgs": "nixpkgs_5475",
         "nixpkgs-windows": "nixpkgs-windows_1489"
       },
       "locked": {
@@ -217105,7 +217124,7 @@
     },
     "logos-nix_5471": {
       "inputs": {
-        "nixpkgs": "nixpkgs_5475",
+        "nixpkgs": "nixpkgs_5476",
         "nixpkgs-windows": "nixpkgs-windows_1490"
       },
       "locked": {
@@ -217124,7 +217143,7 @@
     },
     "logos-nix_5472": {
       "inputs": {
-        "nixpkgs": "nixpkgs_5476",
+        "nixpkgs": "nixpkgs_5477",
         "nixpkgs-windows": "nixpkgs-windows_1491"
       },
       "locked": {
@@ -217143,7 +217162,7 @@
     },
     "logos-nix_5473": {
       "inputs": {
-        "nixpkgs": "nixpkgs_5477",
+        "nixpkgs": "nixpkgs_5478",
         "nixpkgs-windows": "nixpkgs-windows_1492"
       },
       "locked": {
@@ -217162,7 +217181,7 @@
     },
     "logos-nix_5474": {
       "inputs": {
-        "nixpkgs": "nixpkgs_5478"
+        "nixpkgs": "nixpkgs_5479"
       },
       "locked": {
         "lastModified": 1774455309,
@@ -217180,7 +217199,7 @@
     },
     "logos-nix_5475": {
       "inputs": {
-        "nixpkgs": "nixpkgs_5479"
+        "nixpkgs": "nixpkgs_5480"
       },
       "locked": {
         "lastModified": 1773955630,
@@ -217198,7 +217217,7 @@
     },
     "logos-nix_5476": {
       "inputs": {
-        "nixpkgs": "nixpkgs_5480",
+        "nixpkgs": "nixpkgs_5481",
         "nixpkgs-windows": "nixpkgs-windows_1493"
       },
       "locked": {
@@ -217217,7 +217236,7 @@
     },
     "logos-nix_5477": {
       "inputs": {
-        "nixpkgs": "nixpkgs_5481",
+        "nixpkgs": "nixpkgs_5482",
         "nixpkgs-windows": "nixpkgs-windows_1494"
       },
       "locked": {
@@ -217236,7 +217255,7 @@
     },
     "logos-nix_5478": {
       "inputs": {
-        "nixpkgs": "nixpkgs_5482",
+        "nixpkgs": "nixpkgs_5483",
         "nixpkgs-windows": "nixpkgs-windows_1495"
       },
       "locked": {
@@ -217255,7 +217274,7 @@
     },
     "logos-nix_5479": {
       "inputs": {
-        "nixpkgs": "nixpkgs_5483",
+        "nixpkgs": "nixpkgs_5484",
         "nixpkgs-windows": "nixpkgs-windows_1496"
       },
       "locked": {
@@ -217293,7 +217312,7 @@
     },
     "logos-nix_5480": {
       "inputs": {
-        "nixpkgs": "nixpkgs_5484",
+        "nixpkgs": "nixpkgs_5485",
         "nixpkgs-windows": "nixpkgs-windows_1497"
       },
       "locked": {
@@ -217312,7 +217331,7 @@
     },
     "logos-nix_5481": {
       "inputs": {
-        "nixpkgs": "nixpkgs_5485",
+        "nixpkgs": "nixpkgs_5486",
         "nixpkgs-windows": "nixpkgs-windows_1498"
       },
       "locked": {
@@ -217331,7 +217350,7 @@
     },
     "logos-nix_5482": {
       "inputs": {
-        "nixpkgs": "nixpkgs_5486",
+        "nixpkgs": "nixpkgs_5487",
         "nixpkgs-windows": "nixpkgs-windows_1499"
       },
       "locked": {
@@ -217350,7 +217369,7 @@
     },
     "logos-nix_5483": {
       "inputs": {
-        "nixpkgs": "nixpkgs_5487"
+        "nixpkgs": "nixpkgs_5488"
       },
       "locked": {
         "lastModified": 1773955630,
@@ -217368,7 +217387,7 @@
     },
     "logos-nix_5484": {
       "inputs": {
-        "nixpkgs": "nixpkgs_5488",
+        "nixpkgs": "nixpkgs_5489",
         "nixpkgs-windows": "nixpkgs-windows_1500"
       },
       "locked": {
@@ -217387,7 +217406,7 @@
     },
     "logos-nix_5485": {
       "inputs": {
-        "nixpkgs": "nixpkgs_5489",
+        "nixpkgs": "nixpkgs_5490",
         "nixpkgs-windows": "nixpkgs-windows_1501"
       },
       "locked": {
@@ -217406,7 +217425,7 @@
     },
     "logos-nix_5486": {
       "inputs": {
-        "nixpkgs": "nixpkgs_5490",
+        "nixpkgs": "nixpkgs_5491",
         "nixpkgs-windows": "nixpkgs-windows_1502"
       },
       "locked": {
@@ -217425,7 +217444,7 @@
     },
     "logos-nix_5487": {
       "inputs": {
-        "nixpkgs": "nixpkgs_5491",
+        "nixpkgs": "nixpkgs_5492",
         "nixpkgs-windows": "nixpkgs-windows_1503"
       },
       "locked": {
@@ -217444,7 +217463,7 @@
     },
     "logos-nix_5488": {
       "inputs": {
-        "nixpkgs": "nixpkgs_5492",
+        "nixpkgs": "nixpkgs_5493",
         "nixpkgs-windows": "nixpkgs-windows_1504"
       },
       "locked": {
@@ -217463,7 +217482,7 @@
     },
     "logos-nix_5489": {
       "inputs": {
-        "nixpkgs": "nixpkgs_5493",
+        "nixpkgs": "nixpkgs_5494",
         "nixpkgs-windows": "nixpkgs-windows_1505"
       },
       "locked": {
@@ -217501,7 +217520,7 @@
     },
     "logos-nix_5490": {
       "inputs": {
-        "nixpkgs": "nixpkgs_5494",
+        "nixpkgs": "nixpkgs_5495",
         "nixpkgs-windows": "nixpkgs-windows_1506"
       },
       "locked": {
@@ -217520,7 +217539,7 @@
     },
     "logos-nix_5491": {
       "inputs": {
-        "nixpkgs": "nixpkgs_5495",
+        "nixpkgs": "nixpkgs_5496",
         "nixpkgs-windows": "nixpkgs-windows_1507"
       },
       "locked": {
@@ -217539,7 +217558,7 @@
     },
     "logos-nix_5492": {
       "inputs": {
-        "nixpkgs": "nixpkgs_5496",
+        "nixpkgs": "nixpkgs_5497",
         "nixpkgs-windows": "nixpkgs-windows_1508"
       },
       "locked": {
@@ -217558,7 +217577,7 @@
     },
     "logos-nix_5493": {
       "inputs": {
-        "nixpkgs": "nixpkgs_5497",
+        "nixpkgs": "nixpkgs_5498",
         "nixpkgs-windows": "nixpkgs-windows_1509"
       },
       "locked": {
@@ -217577,7 +217596,7 @@
     },
     "logos-nix_5494": {
       "inputs": {
-        "nixpkgs": "nixpkgs_5498"
+        "nixpkgs": "nixpkgs_5499"
       },
       "locked": {
         "lastModified": 1774455309,
@@ -217595,7 +217614,7 @@
     },
     "logos-nix_5495": {
       "inputs": {
-        "nixpkgs": "nixpkgs_5499"
+        "nixpkgs": "nixpkgs_5500"
       },
       "locked": {
         "lastModified": 1773955630,
@@ -217613,7 +217632,7 @@
     },
     "logos-nix_5496": {
       "inputs": {
-        "nixpkgs": "nixpkgs_5500",
+        "nixpkgs": "nixpkgs_5501",
         "nixpkgs-windows": "nixpkgs-windows_1510"
       },
       "locked": {
@@ -523048,16 +523067,16 @@
     },
     "nixpkgs_5355": {
       "locked": {
-        "lastModified": 1759036355,
-        "narHash": "sha256-0m27AKv6ka+q270dw48KflE0LwQYrO7Fm4/2//KCVWg=",
+        "lastModified": 1767313136,
+        "narHash": "sha256-16KkgfdYqjaeRGBaYsNrhPRRENs0qzkQVUooNHtoy2w=",
         "owner": "NixOS",
         "repo": "nixpkgs",
-        "rev": "e9f00bd893984bc8ce46c895c3bf7cac95331127",
+        "rev": "ac62194c3917d5f474c1a844b6fd6da2db95077d",
         "type": "github"
       },
       "original": {
         "owner": "NixOS",
-        "ref": "nixos-unstable",
+        "ref": "nixos-25.05",
         "repo": "nixpkgs",
         "type": "github"
       }
@@ -525650,6 +525669,38 @@
       "original": {
         "owner": "NixOS",
         "ref": "nixos-unstable",
+        "repo": "nixpkgs",
+        "type": "github"
+      }
+    },
+    "nixpkgs_5501": {
+      "locked": {
+        "lastModified": 1759036355,
+        "narHash": "sha256-0m27AKv6ka+q270dw48KflE0LwQYrO7Fm4/2//KCVWg=",
+        "owner": "NixOS",
+        "repo": "nixpkgs",
+        "rev": "e9f00bd893984bc8ce46c895c3bf7cac95331127",
+        "type": "github"
+      },
+      "original": {
+        "owner": "NixOS",
+        "ref": "nixos-unstable",
+        "repo": "nixpkgs",
+        "type": "github"
+      }
+    },
+    "nixpkgs_5502": {
+      "locked": {
+        "lastModified": 1767313136,
+        "narHash": "sha256-16KkgfdYqjaeRGBaYsNrhPRRENs0qzkQVUooNHtoy2w=",
+        "owner": "NixOS",
+        "repo": "nixpkgs",
+        "rev": "ac62194c3917d5f474c1a844b6fd6da2db95077d",
+        "type": "github"
+      },
+      "original": {
+        "owner": "NixOS",
+        "ref": "nixos-25.05",
         "repo": "nixpkgs",
         "type": "github"
       }
@@ -538329,7 +538380,9 @@
     "root": {
       "inputs": {
         "delivery_module": "delivery_module",
-        "logos-module-builder": "logos-module-builder_127"
+        "logos-blockchain-circuits": "logos-blockchain-circuits_2",
+        "logos-module-builder": "logos-module-builder_127",
+        "rust-rapidsnark": "rust-rapidsnark_2"
       }
     },
     "rust-overlay": {
@@ -540549,6 +540602,25 @@
     "rust-rapidsnark": {
       "inputs": {
         "nixpkgs": "nixpkgs_3"
+      },
+      "locked": {
+        "lastModified": 1781090841,
+        "narHash": "sha256-A1wVkHRw3/xpV30JUgWxvfW5PgcyrxQxk7b4So5vXNs=",
+        "owner": "logos-blockchain",
+        "repo": "logos-blockchain-rust-rapidsnark",
+        "rev": "e91187f8ccb5bbfc7bb00dac88169112428da78f",
+        "type": "github"
+      },
+      "original": {
+        "owner": "logos-blockchain",
+        "repo": "logos-blockchain-rust-rapidsnark",
+        "rev": "e91187f8ccb5bbfc7bb00dac88169112428da78f",
+        "type": "github"
+      }
+    },
+    "rust-rapidsnark_2": {
+      "inputs": {
+        "nixpkgs": "nixpkgs_5502"
       },
       "locked": {
         "lastModified": 1781090841,
